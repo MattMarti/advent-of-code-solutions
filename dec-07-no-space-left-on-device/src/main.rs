@@ -2,6 +2,9 @@ use std::env;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 
+const SPACE_AVAIL: usize = 70000000;
+const REQUIRED_SPACE: usize = 30000000;
+
 #[derive(Default)]
 struct SizeObj {
     real_size: usize,
@@ -23,6 +26,21 @@ impl ElfFile {
     }
 }
 
+#[derive(Default, Eq, Ord, PartialEq, PartialOrd)]
+struct FileSizeObj {
+    pub size: usize,
+    pub name: String,
+}
+
+impl FileSizeObj {
+    pub fn from_name_size(name: &str, size: usize) -> Self {
+        Self {
+            name: name.to_string(),
+            size: size,
+        }
+    }
+}
+
 #[derive(Default)]
 struct ElfDir {
     pub name: String,
@@ -37,6 +55,26 @@ impl ElfDir {
             files: Vec::<ElfFile>::default(),
             dirs: Vec::<ElfDir>::default(),
         }
+    }
+
+    pub fn get_dir_size_objs(&self) -> Vec<FileSizeObj> {
+        let mut file_sizes = Vec::<FileSizeObj>::new();
+        for dir in self.dirs.iter() {
+            file_sizes.extend(dir.get_dir_size_objs());
+        }
+        file_sizes.push(FileSizeObj::from_name_size(&self.name, self.get_dir_size()));
+        file_sizes
+    }
+
+    pub fn get_dir_size(&self) -> usize {
+        let mut total = 0;
+        for file in self.files.iter() {
+            total += file.size;
+        }
+        for dir in self.dirs.iter() {
+            total += dir.get_dir_size();
+        }
+        total
     }
 
     pub fn sum_sizes_if_big_enough_double_count(&self) -> SizeObj {
@@ -155,10 +193,12 @@ impl DirBuilder {
         self.pwd.push(dir_name.to_string());
     }
 
-    pub fn sum(&self) -> usize {
-        self.fs_root
-            .sum_sizes_if_big_enough_double_count()
-            .size_for_problem
+    pub fn sum(&self) -> SizeObj {
+        self.fs_root.sum_sizes_if_big_enough_double_count()
+    }
+
+    pub fn get_dir_sizes(&self) -> Vec<FileSizeObj> {
+        self.fs_root.get_dir_size_objs()
     }
 }
 
@@ -173,6 +213,24 @@ fn main() -> io::Result<()> {
         let line = read_line?;
         cmd_builder.add_line(&line);
     }
-    println!("Total sizes of big dirs: {}", cmd_builder.sum());
+    let total_space_obj = cmd_builder.sum();
+    let total_size_of_smalls = total_space_obj.size_for_problem;
+    println!("Total sizes of big dirs: {}", total_size_of_smalls);
+
+    let total_size = total_space_obj.real_size;
+    let mut file_size_objs = cmd_builder.get_dir_sizes();
+    file_size_objs.sort();
+    let empty_space = SPACE_AVAIL - total_size;
+    for dir in file_size_objs {
+        let freed_space = empty_space + dir.size;
+        println!(
+            "Total size for delete {}: {} will give {}",
+            dir.name, dir.size, freed_space
+        );
+        if freed_space > REQUIRED_SPACE {
+            break;
+        }
+    }
+
     Ok(())
 }
