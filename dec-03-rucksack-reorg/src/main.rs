@@ -36,12 +36,27 @@ fn main() -> io::Result<()> {
     let file = File::open(fname)?;
     let reader = BufReader::new(file);
     let mut total_value: u32 = 0;
+    let mut rucksack_group: [String; 3] = Default::default();
+    let mut repeated_items: [char; 3] = Default::default();
+    let mut group_idx: usize = 0;
+    let mut total_group_item_value: u32 = 0;
     for read_line in reader.lines() {
+        // Check duplicate letter
         let line = read_line?;
         let (left, right) = get_compartments(&line);
         let item = find_repeated_item(&left, &right);
         total_value += calc_item_value(item);
+
+        // Check group for common item
+        rucksack_group[group_idx] = line;
+        repeated_items[group_idx] = item;
+        group_idx = (group_idx + 1) % 3;
+        if group_idx == 0 {
+            let item = get_group_item(rucksack_group, repeated_items);
+            total_group_item_value += calc_item_value(item);
+        }
     }
-    println!("Total value in sacks: {}", total_value);
+    println!("Total value of items repeated across compartments: {}", total_value);
+    println!("Total value of common items from groups: {}", total_group_item_value);
     Ok(())
 }
