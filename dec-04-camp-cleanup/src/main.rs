@@ -1,3 +1,4 @@
+use std::cmp;
 use std::env;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
@@ -22,11 +23,14 @@ impl Range {
         self.min <= cmp.min && cmp.max <= self.max
     }
 
-    pub fn overlaps(&self, cmp: &Range) -> bool {
-        (self.min <= cmp.min && cmp.min <= self.max)
-            || (cmp.min <= self.min && self.min <= cmp.max)
-            || (self.min <= cmp.max && cmp.max <= self.max)
-            || (cmp.min <= self.max && self.max <= cmp.max)
+    pub fn len(&self) -> u32 {
+        self.max - self.min + 1
+    }
+
+    pub fn overlaps(&self, other: &Range) -> bool {
+        let collective_len = self.len() + other.len();
+        let total_len = cmp::max(self.max, other.max) - cmp::min(self.min, other.min) + 1;
+        total_len < collective_len
     }
 }
 
@@ -50,7 +54,7 @@ fn main() -> io::Result<()> {
             num_contains += 1;
         }
         if left.overlaps(&right) {
-            num_overlaps += 1
+            num_overlaps += 1;
         }
     }
     println!("Number of strict subset ranges: {}", num_contains);
