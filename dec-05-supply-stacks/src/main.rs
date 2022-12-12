@@ -2,6 +2,30 @@ use std::env;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 
+struct Movement {
+    num: usize,
+    src: usize,
+    dest: usize,
+}
+
+impl Movement {
+    pub fn from_line(line: &String) -> Self {
+        let line_iter: Vec<&str> = line.split(' ').collect();
+        Self {
+            num: line_iter[1].to_string().parse::<usize>().unwrap(),
+            src: line_iter[3].to_string().parse::<usize>().unwrap() - 1,
+            dest: line_iter[5].to_string().parse::<usize>().unwrap() - 1,
+        }
+    }
+}
+
+fn move_crate(stacks: &mut Vec<Vec<char>>, mv: &Movement) {
+    for _ in 0..mv.num {
+        let elf_crate = stacks[mv.src].pop().unwrap();
+        stacks[mv.dest].push(elf_crate);
+    }
+}
+
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().skip(1).collect();
     let fname = &args[0];
@@ -36,7 +60,10 @@ fn main() -> io::Result<()> {
                     None => (),
                 }
             }
-        } else { // Do movement
+        } else {
+            // Do movement
+            let mv = Movement::from_line(&line);
+            move_crate(&mut stacks, &mv);
         }
     }
     print_stacks(&stacks);
