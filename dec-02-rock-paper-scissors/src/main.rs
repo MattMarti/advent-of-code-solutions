@@ -1,7 +1,9 @@
 use std::env;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
+use std::marker::Copy;
 
+#[derive(Clone, Copy)]
 enum Hand {
     Rock,
     Paper,
@@ -17,9 +19,17 @@ fn parse_line(line: String) -> (Hand, Hand) {
         x => panic!("Inavlid strategy value: {}", x),
     };
     let player_hand = match hands[1] {
-        "X" => Hand::Rock,
-        "Y" => Hand::Paper,
-        "Z" => Hand::Scissors,
+        "X" => match opponent_hand {
+            Hand::Rock => Hand::Scissors,
+            Hand::Paper => Hand::Rock,
+            Hand::Scissors => Hand::Paper,
+        },
+        "Y" => opponent_hand,
+        "Z" => match opponent_hand {
+            Hand::Rock => Hand::Paper,
+            Hand::Paper => Hand::Scissors,
+            Hand::Scissors => Hand::Rock,
+        },
         x => panic!("Inavlid strategy value: {}", x),
     };
     (opponent_hand, player_hand)
