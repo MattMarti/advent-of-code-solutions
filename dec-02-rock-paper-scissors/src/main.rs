@@ -11,24 +11,25 @@ enum Hand {
 }
 
 fn parse_line(line: String) -> (Hand, Hand) {
+    use Hand::*;
     let hands: Vec<&str> = line.split(' ').collect();
     let opponent_hand = match hands[0] {
-        "A" => Hand::Rock,
-        "B" => Hand::Paper,
-        "C" => Hand::Scissors,
+        "A" => Rock,
+        "B" => Paper,
+        "C" => Scissors,
         x => panic!("Inavlid strategy value: {}", x),
     };
     let player_hand = match hands[1] {
         "X" => match opponent_hand {
-            Hand::Rock => Hand::Scissors,
-            Hand::Paper => Hand::Rock,
-            Hand::Scissors => Hand::Paper,
+            Rock => Scissors,
+            Paper => Rock,
+            Scissors => Paper,
         },
         "Y" => opponent_hand,
         "Z" => match opponent_hand {
-            Hand::Rock => Hand::Paper,
-            Hand::Paper => Hand::Scissors,
-            Hand::Scissors => Hand::Rock,
+            Rock => Paper,
+            Paper => Scissors,
+            Scissors => Rock,
         },
         x => panic!("Inavlid strategy value: {}", x),
     };
@@ -36,29 +37,31 @@ fn parse_line(line: String) -> (Hand, Hand) {
 }
 
 fn points_for_hand(hand: &Hand) -> u32 {
+    use Hand::*;
     match hand {
-        Hand::Rock => 1,
-        Hand::Paper => 2,
-        Hand::Scissors => 3,
+        Rock => 1,
+        Paper => 2,
+        Scissors => 3,
     }
 }
 
 fn points_for_outcome(opponent_hand: &Hand, player_hand: &Hand) -> u32 {
+    use Hand::*;
     match opponent_hand {
-        Hand::Rock => match player_hand {
-            Hand::Rock => 3,
-            Hand::Paper => 6,
-            Hand::Scissors => 0,
+        Rock => match player_hand {
+            Rock => 3,
+            Paper => 6,
+            Scissors => 0,
         },
-        Hand::Paper => match player_hand {
-            Hand::Rock => 0,
-            Hand::Paper => 3,
-            Hand::Scissors => 6,
+        Paper => match player_hand {
+            Rock => 0,
+            Paper => 3,
+            Scissors => 6,
         },
-        Hand::Scissors => match player_hand {
-            Hand::Rock => 6,
-            Hand::Paper => 0,
-            Hand::Scissors => 3,
+        Scissors => match player_hand {
+            Rock => 6,
+            Paper => 0,
+            Scissors => 3,
         },
     }
 }
