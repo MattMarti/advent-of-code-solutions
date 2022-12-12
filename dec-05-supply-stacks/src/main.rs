@@ -17,12 +17,16 @@ impl Movement {
             dest: line_iter[5].to_string().parse::<usize>().unwrap() - 1,
         }
     }
-}
 
-fn move_crate(stacks: &mut Vec<Vec<char>>, mv: &Movement) {
-    for _ in 0..mv.num {
-        let elf_crate = stacks[mv.src].pop().unwrap();
-        stacks[mv.dest].push(elf_crate);
+    pub fn execute(&self, stacks: &mut Vec<Vec<char>>) {
+        let mut tmp_storage: Vec<char> = Vec::new();
+        for _ in 0..self.num {
+            let elf_crate = stacks[self.src].pop().unwrap();
+            tmp_storage.push(elf_crate);
+        }
+        for j in 0..tmp_storage.len() {
+            stacks[self.dest].push(tmp_storage[tmp_storage.len() - j - 1]);
+        }
     }
 }
 
@@ -46,10 +50,8 @@ fn main() -> io::Result<()> {
                 stacks = vec![Vec::new(); num_crates];
             }
             for (vec_idx, line_idx) in (1..line.len()).step_by(4).enumerate() {
-                print!("{}, {}", vec_idx, line_idx);
                 match line.chars().nth(line_idx) {
                     Some(c) => {
-                        println!(": {}", c);
                         if c.is_alphabetic() {
                             stacks[vec_idx].insert(0, c);
                         } else if c.is_numeric() {
@@ -63,7 +65,7 @@ fn main() -> io::Result<()> {
         } else {
             // Do movement
             let mv = Movement::from_line(&line);
-            move_crate(&mut stacks, &mv);
+            mv.execute(&mut stacks);
         }
     }
     print_stacks(&stacks);
