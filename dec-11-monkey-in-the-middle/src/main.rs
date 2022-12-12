@@ -31,17 +31,18 @@ impl Operation {
 
 struct MonkeyThrow {
     pub dest: usize,
-    pub value: u32,
+    pub value: u64,
 }
 
 struct Monkey {
-    items: Queue<u32>,
+    items: Queue<u64>,
     operation: Operation,
-    argument: Option<u32>,
-    target_discriminator: u32,
+    argument: Option<u64>,
+    pub discriminator: u64,
+    pub reducer: u64,
     throw_target_a: usize,
     throw_target_b: usize,
-    num_inspected: usize,
+    num_inspected: u64,
 }
 
 impl Monkey {
@@ -49,41 +50,42 @@ impl Monkey {
         let operation_data = code[1].split_whitespace().skip(4).collect::<Vec<&str>>();
         let operator_argument = match operation_data[1] {
             "old" => None,
-            x => Some(x.to_string().parse::<u32>().unwrap()),
+            x => Some(x.to_string().parse::<u64>().unwrap()),
         };
         Self {
             items: Monkey::read_item_list(&code[0].split_whitespace().skip(2).collect::<String>()),
             operation: Operation::from_str(operation_data[0]),
             argument: operator_argument,
-            target_discriminator: code[2]
+            discriminator: code[2]
                 .split_whitespace()
                 .collect::<Vec<&str>>()
                 .last()
                 .unwrap()
-                .parse::<u32>()
+                .parse::<u64>()
                 .unwrap(),
+            reducer: 1,
             throw_target_a: code[3]
-                .split(" ")
+                .split_whitespace()
                 .last()
                 .unwrap()
                 .to_string()
                 .parse::<usize>()
                 .unwrap(),
             throw_target_b: code[4]
-                .split(" ")
+                .split_whitespace()
                 .last()
                 .unwrap()
                 .to_string()
                 .parse::<usize>()
                 .unwrap(),
-                num_inspected: 0,
+            num_inspected: 0,
         }
     }
 
-    fn read_item_list(list_values: &String) -> Queue<u32> {
-        let mut queue = Queue::<u32>::new();
+    fn read_item_list(list_values: &String) -> Queue<u64> {
+        let mut queue = Queue::<u64>::new();
         for v in list_values.split(",") {
-            queue.add(v.to_string().parse::<u32>().unwrap());
+            queue.add(v.to_string().parse::<u64>().unwrap());
         }
         queue
     }
@@ -94,7 +96,7 @@ impl Monkey {
 
     pub fn pop_next_throw(&mut self) -> MonkeyThrow {
         let mut value = self.items.remove().unwrap();
-        println!("  Inspecting item of {}", value);
+        //println!("  Inspecting item of {}", value);
         let op_arg = match self.argument {
             Some(x) => x,
             None => value,
@@ -103,30 +105,30 @@ impl Monkey {
             Operation::Add => value + op_arg,
             Operation::Mult => value * op_arg,
         };
-        println!("  New value is {}", value);
+        //println!("  New value is {}", value);
         // Monkey inspect
-        value = value / 3;
+        value %= self.reducer;
         self.num_inspected += 1;
-        println!("  Adjusting value to {}", value);
-        let next_monkey = match value % self.target_discriminator {
+        //println!("  Adjusting value to {}", value);
+        let next_monkey = match value % self.discriminator {
             0 => self.throw_target_a,
             _ => self.throw_target_b,
         };
-        println!(
-            "  Next target is {} (disc {})",
-            next_monkey, self.target_discriminator
-        );
+        //println!(
+        //    "  Next target is {} (disc {})",
+        //    next_monkey, self.discriminator
+        //);
         MonkeyThrow {
             dest: next_monkey,
             value: value,
         }
     }
 
-    pub fn push(&mut self, new_value: u32) {
+    pub fn push(&mut self, new_value: u64) {
         self.items.add(new_value);
     }
 
-    pub fn get_num_inspected(&self) -> usize {
+    pub fn get_num_inspected(&self) -> u64 {
         self.num_inspected
     }
 }
@@ -137,7 +139,8 @@ impl Debug for Monkey {
         println!("  items: {:?}", self.items);
         println!("  operation: {:?}", self.operation);
         println!("  constant: {:?}", self.argument);
-        println!("  target_discriminator: {:?}", self.target_discriminator);
+        println!("  discriminator: {:?}", self.discriminator);
+        println!("  reducer: {:?}", self.reducer);
         println!("  target_a: {:?}", self.throw_target_a);
         println!("  target_b: {:?}", self.throw_target_b);
         println!("  insepcted: {}", self.num_inspected);
@@ -175,30 +178,42 @@ fn main() -> io::Result<()> {
         }
     }
 
+    println!("Calculating reducer");
+    let mut reducer = 1;
+    for monkey in monkeys.iter() {
+        reducer *= monkey.discriminator;
+    }
+    for monkey in monkeys.iter_mut() {
+        monkey.reducer = reducer;
+    }
+
     println!("Printing monkeys");
     for monkey in monkeys.iter() {
         println!("{:?}", monkey);
     }
 
-    let num_rounds: usize = 20;
+    //let num_rounds: usize = 20;
+    let num_rounds: usize = 10000;
     println!("Playing");
-    for round in 0..num_rounds {
+    for round in 1..num_rounds + 1 {
         for i in 0..monkeys.len() {
-            println!("Monkey {}:", i);
+            //println!("Monkey {}:", i);
             while monkeys[i].has_items() {
                 let throw = monkeys[i].pop_next_throw();
-                println!(" Throwing value of {} to {}", throw.value, throw.dest);
+                //println!(" Throwing value of {} to {}", throw.value, throw.dest);
                 monkeys[throw.dest].push(throw.value);
             }
         }
 
-        println!("------------------------");
-        println!("Round {} monkey results:", round);
-        for monk in monkeys.iter() {
-            println!("{:?}", monk);
+        if round % 1000 == 0 || round == 1 {
+            println!("------------------------");
+            println!("Round {} monkey results:", round);
+            for monk in monkeys.iter() {
+                println!("{:?}", monk);
+            }
+            println!("------------------------");
+            //delay();
         }
-        println!("------------------------");
-        //delay();
     }
 
     println!("Amount monkey business: {}", calc_monkey_business(&monkeys));
@@ -206,8 +221,8 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn calc_monkey_business(monkeys: &[Monkey]) -> usize {
-    let mut most_insepcted = Vec::<usize>::new();
+fn calc_monkey_business(monkeys: &[Monkey]) -> u64 {
+    let mut most_insepcted = Vec::<u64>::new();
     let most = std::cmp::max(monkeys[0].num_inspected, monkeys[1].num_inspected);
     let next_most = std::cmp::min(monkeys[0].num_inspected, monkeys[1].num_inspected);
     most_insepcted.push(most);
@@ -215,8 +230,7 @@ fn calc_monkey_business(monkeys: &[Monkey]) -> usize {
     for m in monkeys.iter().skip(2) {
         if most_insepcted[1] < m.num_inspected {
             most_insepcted[1] = m.num_inspected;
-        }
-        else if most_insepcted[0] < m.num_inspected {
+        } else if most_insepcted[0] < m.num_inspected {
             most_insepcted[1] = most_insepcted[0];
             most_insepcted[0] = m.num_inspected;
         }
