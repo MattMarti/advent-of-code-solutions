@@ -40,13 +40,28 @@ impl HeadMotion {
 }
 
 #[derive(Default)]
-struct World {
-    pub head: Coord,
-    pub tail: Coord,
+struct Rope {
+    pub knots: Vec<Coord>,
     pub visited: HashMap<Coord, usize>,
 }
 
-impl World {
+impl Rope {
+    pub fn default() -> Self {
+        Self {
+            knots: vec![Coord::default(); 2],
+            ..Default::default()
+        }
+    }
+
+    pub fn new(knots: usize) -> Self {
+        const MIN_KNOTS: usize = 2;
+        assert!(MIN_KNOTS <= knots, "Rope must be created with at least {} knots but was {}", MIN_KNOTS, knots);
+        Self {
+            knots: vec![Coord::default(); knots],
+            ..Default::default()
+        }
+    }
+
     pub fn add_motion(&mut self, motion: &HeadMotion) {
         for _ in 0..motion.delta {
             self.move_head_one(&motion.dir);
@@ -56,48 +71,56 @@ impl World {
     fn move_head_one(&mut self, dir: &Direction) {
         use Direction::*;
         match dir {
-            Up => self.head.y += 1,
-            Down => self.head.y -= 1,
-            Right => self.head.x += 1,
-            Left => self.head.x -= 1,
+            Up => self.knots[0].y += 1,
+            Down => self.knots[0].y -= 1,
+            Right => self.knots[0].x += 1,
+            Left => self.knots[0].x -= 1,
         };
         self.move_tail();
         self.visited
-            .entry(self.tail)
+            .entry(*self.knots.last().unwrap())
             .and_modify(|num| *num += 1)
             .or_insert(1);
     }
 
     fn move_tail(&mut self) {
-        let dist_x = (self.head.x - self.tail.x).abs();
-        let dist_y = (self.head.y - self.tail.y).abs();
+        for i in 1..self.knots.len() {
+            let new = Self::move_follower(&self.knots[i - 1], &self.knots[i]);
+            self.knots[i] = new;
+        }
+    }
 
+    fn move_follower(lead: &Coord, follow: &Coord) -> Coord {
+        let dist_x = (lead.x - follow.x).abs();
+        let dist_y = (lead.y - follow.y).abs();
+        let mut new_pos: Coord = *follow;
         if dist_x < 2 && dist_y < 2 {
-            return;
-        } else if self.head.x == self.tail.x {
-            if self.tail.y < self.head.y - 1 {
-                self.tail.y += 1;
-            } else if self.tail.y > self.head.y + 1 {
-                self.tail.y -= 1;
+            return new_pos;
+        } else if lead.x == follow.x {
+            if follow.y < lead.y - 1 {
+                new_pos.y += 1;
+            } else if follow.y > lead.y + 1 {
+                new_pos.y -= 1;
             }
-        } else if self.head.y == self.tail.y {
-            if self.tail.x < self.head.x - 1 {
-                self.tail.x += 1;
-            } else if self.tail.x > self.head.x + 1 {
-                self.tail.x -= 1;
+        } else if lead.y == follow.y {
+            if follow.x < lead.x - 1 {
+                new_pos.x += 1;
+            } else if follow.x > lead.x + 1 {
+                new_pos.x -= 1;
             }
         } else {
-            if self.head.x > self.tail.x {
-                self.tail.x += 1;
-            } else if self.head.x < self.tail.x {
-                self.tail.x -= 1;
+            if lead.x > follow.x {
+                new_pos.x += 1;
+            } else if lead.x < follow.x {
+                new_pos.x -= 1;
             }
-            if self.head.y > self.tail.y {
-                self.tail.y += 1;
-            } else if self.head.y < self.tail.y {
-                self.tail.y -= 1;
+            if lead.y > follow.y {
+                new_pos.y += 1;
+            } else if lead.y < follow.y {
+                new_pos.y -= 1;
             }
         }
+        new_pos
     }
 }
 
@@ -107,20 +130,20 @@ fn main() -> io::Result<()> {
     println!("Filename: {}", fname);
     let file = File::open(fname)?;
     let reader = BufReader::new(file);
-    let mut world = World::default();
+    let mut rope = Rope::default();
+    let mut long_rope = Rope::new(10);
     for read_line in reader.lines() {
         let line = read_line?;
         let motion = HeadMotion::from_str(&line);
-        world.add_motion(&motion);
+        rope.add_motion(&motion);
+        long_rope.add_motion(&motion);
     }
 
-    let max_visited: usize = world
-        .visited
-        .values()
-        .cloned()
-        .collect::<Vec<usize>>()
-        .len();
-    println!("The max visited spot had {} visits.", max_visited);
+    let max_visited: usize = rope.visited.len();
+    println!("Rope had {} visits.", max_visited);
+
+    let max_visited_long: usize = long_rope.visited.len();
+    println!("Long rope had {} visits.", max_visited_long);
 
     Ok(())
 }
@@ -151,65 +174,65 @@ mod test {
 
     #[test]
     fn adding_head_motion_moves_head() {
-        let mut world = World::default();
-        world.add_motion(&HeadMotion::from_str("R 1"));
-        assert_eq!(world.head, Coord::new(1, 0));
-        world.add_motion(&HeadMotion::from_str("R 2"));
-        assert_eq!(world.head, Coord::new(3, 0));
-        world.add_motion(&HeadMotion::from_str("U 1"));
-        assert_eq!(world.head, Coord::new(3, 1));
-        world.add_motion(&HeadMotion::from_str("D 3"));
-        assert_eq!(world.head, Coord::new(3, -2));
-        world.add_motion(&HeadMotion::from_str("L 3"));
-        assert_eq!(world.head, Coord::new(0, -2));
+        let mut rope = Rope::default();
+        rope.add_motion(&HeadMotion::from_str("R 1"));
+        assert_eq!(rope.head, Coord::new(1, 0));
+        rope.add_motion(&HeadMotion::from_str("R 2"));
+        assert_eq!(rope.head, Coord::new(3, 0));
+        rope.add_motion(&HeadMotion::from_str("U 1"));
+        assert_eq!(rope.head, Coord::new(3, 1));
+        rope.add_motion(&HeadMotion::from_str("D 3"));
+        assert_eq!(rope.head, Coord::new(3, -2));
+        rope.add_motion(&HeadMotion::from_str("L 3"));
+        assert_eq!(rope.head, Coord::new(0, -2));
     }
 
     #[test]
     fn tail_moves_cross_r() {
-        let mut world = World::default();
-        world.head = Coord::new(1, 0);
-        world.add_motion(&HeadMotion::from_str("R 1"));
-        assert_eq!(world.head, Coord::new(2, 0));
-        assert_eq!(world.tail, Coord::new(1, 0));
-        world.add_motion(&HeadMotion::from_str("R 3"));
-        assert_eq!(world.head, Coord::new(5, 0));
-        assert_eq!(world.tail, Coord::new(4, 0));
+        let mut rope = Rope::default();
+        rope.head = Coord::new(1, 0);
+        rope.add_motion(&HeadMotion::from_str("R 1"));
+        assert_eq!(rope.head, Coord::new(2, 0));
+        assert_eq!(rope.tail, Coord::new(1, 0));
+        rope.add_motion(&HeadMotion::from_str("R 3"));
+        assert_eq!(rope.head, Coord::new(5, 0));
+        assert_eq!(rope.tail, Coord::new(4, 0));
     }
 
     #[test]
     fn tail_moves_cross_l() {
-        let mut world = World::default();
-        world.head = Coord::new(-1, 0);
-        world.add_motion(&HeadMotion::from_str("L 1"));
-        assert_eq!(world.head, Coord::new(-2, 0));
-        assert_eq!(world.tail, Coord::new(-1, 0));
-        world.add_motion(&HeadMotion::from_str("L 3"));
-        assert_eq!(world.head, Coord::new(-5, 0));
-        assert_eq!(world.tail, Coord::new(-4, 0));
+        let mut rope = Rope::default();
+        rope.head = Coord::new(-1, 0);
+        rope.add_motion(&HeadMotion::from_str("L 1"));
+        assert_eq!(rope.head, Coord::new(-2, 0));
+        assert_eq!(rope.tail, Coord::new(-1, 0));
+        rope.add_motion(&HeadMotion::from_str("L 3"));
+        assert_eq!(rope.head, Coord::new(-5, 0));
+        assert_eq!(rope.tail, Coord::new(-4, 0));
     }
 
     #[test]
     fn tail_moves_cross_u() {
-        let mut world = World::default();
-        world.head = Coord::new(0, 1);
-        world.add_motion(&HeadMotion::from_str("U 1"));
-        assert_eq!(world.head, Coord::new(0, 2));
-        assert_eq!(world.tail, Coord::new(0, 1));
-        world.add_motion(&HeadMotion::from_str("U 3"));
-        assert_eq!(world.head, Coord::new(0, 5));
-        assert_eq!(world.tail, Coord::new(0, 4));
+        let mut rope = Rope::default();
+        rope.head = Coord::new(0, 1);
+        rope.add_motion(&HeadMotion::from_str("U 1"));
+        assert_eq!(rope.head, Coord::new(0, 2));
+        assert_eq!(rope.tail, Coord::new(0, 1));
+        rope.add_motion(&HeadMotion::from_str("U 3"));
+        assert_eq!(rope.head, Coord::new(0, 5));
+        assert_eq!(rope.tail, Coord::new(0, 4));
     }
 
     #[test]
     fn tail_moves_cross_d() {
-        let mut world = World::default();
-        world.head = Coord::new(0, -1);
-        world.add_motion(&HeadMotion::from_str("D 1"));
-        assert_eq!(world.head, Coord::new(0, -2));
-        assert_eq!(world.tail, Coord::new(0, -1));
-        world.add_motion(&HeadMotion::from_str("D 3"));
-        assert_eq!(world.head, Coord::new(0, -5));
-        assert_eq!(world.tail, Coord::new(0, -4));
+        let mut rope = Rope::default();
+        rope.head = Coord::new(0, -1);
+        rope.add_motion(&HeadMotion::from_str("D 1"));
+        assert_eq!(rope.head, Coord::new(0, -2));
+        assert_eq!(rope.tail, Coord::new(0, -1));
+        rope.add_motion(&HeadMotion::from_str("D 3"));
+        assert_eq!(rope.head, Coord::new(0, -5));
+        assert_eq!(rope.tail, Coord::new(0, -4));
     }
 
     #[test]
@@ -219,10 +242,10 @@ mod test {
             (Coord::new(1, 1), HeadMotion::from_str("R 1")),
         ];
         for (head_start, motion) in cases {
-            let mut world = World::default();
-            world.head = head_start;
-            world.add_motion(&motion);
-            assert_eq!(world.tail, Coord::new(1, 1));
+            let mut rope = Rope::default();
+            rope.head = head_start;
+            rope.add_motion(&motion);
+            assert_eq!(rope.tail, Coord::new(1, 1));
         }
     }
 
@@ -233,10 +256,10 @@ mod test {
             (Coord::new(-1, 1), HeadMotion::from_str("U 1")),
         ];
         for (head_start, motion) in cases {
-            let mut world = World::default();
-            world.head = head_start;
-            world.add_motion(&motion);
-            assert_eq!(world.tail, Coord::new(-1, 1));
+            let mut rope = Rope::default();
+            rope.head = head_start;
+            rope.add_motion(&motion);
+            assert_eq!(rope.tail, Coord::new(-1, 1));
         }
     }
 
@@ -247,10 +270,10 @@ mod test {
             (Coord::new(-1, -1), HeadMotion::from_str("D 1")),
         ];
         for (head_start, motion) in cases {
-            let mut world = World::default();
-            world.head = head_start;
-            world.add_motion(&motion);
-            assert_eq!(world.tail, Coord::new(-1, -1));
+            let mut rope = Rope::default();
+            rope.head = head_start;
+            rope.add_motion(&motion);
+            assert_eq!(rope.tail, Coord::new(-1, -1));
         }
     }
 
@@ -261,10 +284,10 @@ mod test {
             (Coord::new(1, -1), HeadMotion::from_str("D 1")),
         ];
         for (head_start, motion) in cases {
-            let mut world = World::default();
-            world.head = head_start;
-            world.add_motion(&motion);
-            assert_eq!(world.tail, Coord::new(1, -1));
+            let mut rope = Rope::default();
+            rope.head = head_start;
+            rope.add_motion(&motion);
+            assert_eq!(rope.tail, Coord::new(1, -1));
         }
     }
 
@@ -300,10 +323,10 @@ mod test {
             (Coord::new(1, -1), HeadMotion::from_str("L 1")),
         ];
         for (i, (head_start, motion)) in cases.iter().enumerate() {
-            let mut world = World::default();
-            world.head = *head_start;
-            world.add_motion(motion);
-            assert_eq!(world.tail, Coord::new(0, 0), "At index {}", i);
+            let mut rope = Rope::default();
+            rope.head = *head_start;
+            rope.add_motion(motion);
+            assert_eq!(rope.tail, Coord::new(0, 0), "At index {}", i);
         }
     }
 }
