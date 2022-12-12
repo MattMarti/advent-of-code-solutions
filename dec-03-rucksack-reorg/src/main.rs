@@ -10,7 +10,7 @@ fn get_compartments(line: &String) -> (String, String) {
     (line[..n / 2].to_string(), line[n / 2..].to_string())
 }
 
-fn find_repeated_item(left: &String, right: &String) -> char {
+fn find_repeated_item(left: &str, right: &str) -> char {
     for s in left.chars() {
         if right.contains(s) {
             return s;
@@ -20,10 +20,10 @@ fn find_repeated_item(left: &String, right: &String) -> char {
 }
 
 fn calc_item_value(item: char) -> u32 {
-    if 'A' <= item && item <= 'Z' {
-        return (item as u32) - ('A' as u32) + 27;
-    } else if 'a' <= item && item <= 'z' {
-        return (item as u32) - ('a' as u32) + 1;
+    if ('A'..='Z').contains(&item) {
+        item as u32 - 'A' as u32 + 27
+    } else if ('a'..='z').contains(&item) {
+        item as u32 - 'a' as u32 + 1
     } else {
         panic!("Unsupported character: {}", item);
     }
