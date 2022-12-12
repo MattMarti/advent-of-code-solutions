@@ -1,17 +1,12 @@
+use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Default, PartialEq)]
 struct Coord {
     pub x: i32,
     pub y: i32,
-}
-
-impl Coord {
-    fn new(x: i32, y: i32) -> Self {
-        Self { x: x, y: y }
-    }
 }
 
 #[derive(Debug)]
@@ -48,7 +43,7 @@ impl HeadMotion {
 struct World {
     pub head: Coord,
     pub tail: Coord,
-    pub visited: Vec<Coord>,
+    pub visited: HashMap<Coord, usize>,
 }
 
 impl World {
@@ -67,14 +62,19 @@ impl World {
             Left => self.head.x -= 1,
         };
         self.move_tail();
-        self.visited.push(self.tail);
+        self.visited
+            .entry(self.tail)
+            .and_modify(|num| *num += 1)
+            .or_insert(1);
     }
 
     fn move_tail(&mut self) {
-        if self.head == self.tail {
+        let dist_x = (self.head.x - self.tail.x).abs();
+        let dist_y = (self.head.y - self.tail.y).abs();
+
+        if dist_x < 2 && dist_y < 2 {
             return;
-        }
-        if self.head.x == self.tail.x {
+        } else if self.head.x == self.tail.x {
             if self.tail.y < self.head.y - 1 {
                 self.tail.y += 1;
             } else if self.tail.y > self.head.y + 1 {
@@ -112,8 +112,15 @@ fn main() -> io::Result<()> {
         let line = read_line?;
         let motion = HeadMotion::from_str(&line);
         world.add_motion(&motion);
-        println!("{}, {}", world.head.x, world.head.y);
     }
+
+    let max_visited: usize = world
+        .visited
+        .values()
+        .cloned()
+        .collect::<Vec<usize>>()
+        .len();
+    println!("The max visited spot had {} visits.", max_visited);
 
     Ok(())
 }
@@ -121,6 +128,12 @@ fn main() -> io::Result<()> {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    impl Coord {
+        fn new(x: i32, y: i32) -> Self {
+            Self { x: x, y: y }
+        }
+    }
 
     #[test]
     fn equality_for_coords() {
@@ -258,10 +271,21 @@ mod test {
     #[test]
     fn close_head_motion_results_in_no_tail_motion() {
         let cases: Vec<(Coord, HeadMotion)> = vec![
+            // Start on top
             (Coord::new(0, 0), HeadMotion::from_str("R 1")),
             (Coord::new(0, 0), HeadMotion::from_str("L 1")),
             (Coord::new(0, 0), HeadMotion::from_str("D 1")),
             (Coord::new(0, 0), HeadMotion::from_str("U 1")),
+            // Start at sides
+            (Coord::new(1, 0), HeadMotion::from_str("U 1")),
+            (Coord::new(1, 0), HeadMotion::from_str("D 1")),
+            (Coord::new(0, 1), HeadMotion::from_str("L 1")),
+            (Coord::new(0, 1), HeadMotion::from_str("R 1")),
+            (Coord::new(0, -1), HeadMotion::from_str("L 1")),
+            (Coord::new(0, -1), HeadMotion::from_str("R 1")),
+            (Coord::new(-1, 0), HeadMotion::from_str("D 1")),
+            (Coord::new(-1, 0), HeadMotion::from_str("U 1")),
+            // Move at diagonals
             (Coord::new(-1, 0), HeadMotion::from_str("R 1")),
             (Coord::new(1, 0), HeadMotion::from_str("L 1")),
             (Coord::new(0, 1), HeadMotion::from_str("D 1")),
