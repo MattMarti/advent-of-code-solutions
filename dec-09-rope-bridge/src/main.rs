@@ -55,7 +55,12 @@ impl Rope {
 
     pub fn new(knots: usize) -> Self {
         const MIN_KNOTS: usize = 2;
-        assert!(MIN_KNOTS <= knots, "Rope must be created with at least {} knots but was {}", MIN_KNOTS, knots);
+        assert!(
+            MIN_KNOTS <= knots,
+            "Rope must be created with at least {} knots but was {}",
+            MIN_KNOTS,
+            knots
+        );
         Self {
             knots: vec![Coord::default(); knots],
             ..Default::default()
