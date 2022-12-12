@@ -1,6 +1,17 @@
 use std::env;
 use std::fs::File;
-use std::io::{self, prelude::*, BufReader};
+use std::io::{self, prelude::*, stdin, BufReader};
+use std::{thread, time};
+
+fn delay() {
+    thread::sleep(time::Duration::from_millis(100));
+
+    //let mut tmp = String::new();
+    //let _ = stdin().read_line(&mut tmp);
+
+    println!();
+    println!();
+}
 
 #[derive(Debug)]
 enum Instruction {
@@ -39,7 +50,7 @@ impl Cpu {
         }
     }
 
-    pub fn spin_clock(&mut self) -> bool {
+    pub fn spin_once(&mut self) -> bool {
         if self.remaining_cycles == 0 {
             self.register += self.next_register;
             return false;
@@ -72,9 +83,9 @@ struct Display {
     pixels: Vec<char>,
     num_rows: usize,
     num_cols: usize,
-    sprite_pos: usize,
+    sprite_pos: i32,
     row: usize,
-    clock: usize
+    clock: usize,
 }
 
 impl Display {
@@ -84,48 +95,61 @@ impl Display {
         Self {
             num_rows: rows,
             num_cols: cols,
-            row: 0,
+            row: rows - 1,
             pixels: vec!['.'; rows * cols],
             sprite_pos: 1,
             clock: 0,
         }
     }
 
-    fn next_row(&mut self) {
-        self.row = (self.row + 1) % self.num_rows;
-        self.sprite_pos = self.row * self.num_cols + 1;
-        println!("Next row ({})", self.sprite_pos);
-    }
-
-    fn set_pixel(&mut self) {
-        let sprite_idx = self.clock % 3;
-        let draw_index = self.sprite_pos + sprite_idx - 1;
-        self.pixels[draw_index] = '#';
-    }
-
-    pub fn spin_clock(&mut self) {
+    fn spin_row(&mut self) {
         if self.clock % self.num_cols == 0 {
-            self.next_row();
+            self.row = (self.row + 1) % self.num_rows;
+            println!("Next row ({})", self.sprite_pos);
         }
-        self.set_pixel();
+    }
+
+    fn set_pixel_with_sprite(&mut self) {
+        let pixel_index = self.clock % self.pixels.len();
+        let row_index = (pixel_index % self.num_cols) as i32;
+        if self.sprite_pos - 1 <= row_index && row_index <= self.sprite_pos + 1 {
+            self.pixels[pixel_index] = '#';
+        }
+    }
+
+    pub fn spin_once(&mut self, cpu: &Cpu) {
+        use Instruction::*;
+        match cpu.cmd {
+            ADDX => self.set_pixel_with_sprite(),
+            NOOP => (),
+        };
+        self.spin_row();
         self.clock += 1;
     }
 
-    pub fn set_sprite_position(&mut self, index: usize) {
-        if index == 0 || index > self.pixels.len() - 1 {
-            panic!("Sprite index out of bounds with {}", index);
+    pub fn set_sprite_position(&mut self, index: i32) {
+        //if 0 <= index && index < self.pixels.len() as i32 {
+            self.sprite_pos = index;
+        //}
+    }
+
+    pub fn draw_sprite(&self) {
+        let mut sprite: Vec<char> = vec!['.'; self.num_cols];
+        for i in self.sprite_pos - 1..self.sprite_pos + 2 {
+            if 0 <= i && i < sprite.len() as i32 {
+                sprite[i as usize] = '#';
+            }
         }
-        self.sprite_pos = index;
+        println!("{}", sprite.iter().collect::<String>());
+        let debug_line: Vec<char> = vec!['-'; self.num_cols];
+        println!("{}", debug_line.iter().collect::<String>())
     }
 
     pub fn draw(&self) {
         for row in 0..self.num_rows {
             let start = self.num_cols * row;
             let end = start + self.num_cols;
-            println!(
-                "{}",
-                &self.pixels[start..end].into_iter().collect::<String>()
-            );
+            println!("{}", &self.pixels[start..end].iter().collect::<String>());
         }
     }
 }
@@ -141,19 +165,23 @@ fn main() -> io::Result<()> {
     let mut check_idx: usize = 0;
     let mut total = 0;
     let mut display = Display::new();
-    for read_line in reader.lines() {
-        let line = read_line?;
+    for line_input in reader.lines() {
+        let line = line_input?;
         cpu.add_instruction(&line);
-        while cpu.spin_clock() {
+        while cpu.spin_once() {
             if check_idx < check_cycles.len() && cpu.cycle == check_cycles[check_idx] {
                 println!("Cycle {}, register {}", cpu.cycle, cpu.register);
                 total += cpu.register * cpu.cycle as i32;
                 check_idx += 1;
             }
-            if cpu.register > 1 {
-                display.set_sprite_position(cpu.register as usize);
-            }
-            display.spin_clock();
+
+            display.set_sprite_position(cpu.register);
+            display.spin_once(&cpu);
+
+            display.draw_sprite();
+            display.draw();
+
+            delay();
         }
     }
     display.draw();
