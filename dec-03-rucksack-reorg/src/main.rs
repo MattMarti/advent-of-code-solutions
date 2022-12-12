@@ -2,6 +2,37 @@ use std::env;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 
+fn get_common_item(rucksack_group: &[String], repeated_items: &[char]) -> char {
+    // Find shortest group
+    let mut idx_shortest = 0;
+    let mut len_shortest = usize::MAX;
+    for (i, group) in rucksack_group.iter().enumerate() {
+        if group.len() < len_shortest {
+            idx_shortest = i;
+            len_shortest = group.len();
+        }
+    }
+
+    // Check each item to see if it's repeated in other groups
+    let common_items: Vec<char> = rucksack_group[idx_shortest].chars().collect();
+    for item in common_items {
+        if repeated_items.contains(&item) {
+            continue;
+        }
+        let mut contains_item = true;
+        for (i, group) in rucksack_group.iter().enumerate() {
+            if i == idx_shortest {
+                continue;
+            }
+            contains_item &= group.contains(item);
+        }
+        if contains_item {
+            return item;
+        }
+    }
+    panic!("No common items found in item groups");
+}
+
 fn get_compartments(line: &String) -> (String, String) {
     let n = line.len();
     if n % 2 == 1 {
@@ -52,11 +83,17 @@ fn main() -> io::Result<()> {
         repeated_items[group_idx] = item;
         group_idx = (group_idx + 1) % 3;
         if group_idx == 0 {
-            let item = get_group_item(rucksack_group, repeated_items);
+            let item = get_common_item(&rucksack_group, &repeated_items);
             total_group_item_value += calc_item_value(item);
         }
     }
-    println!("Total value of items repeated across compartments: {}", total_value);
-    println!("Total value of common items from groups: {}", total_group_item_value);
+    println!(
+        "Total value of items repeated across compartments: {}",
+        total_value
+    );
+    println!(
+        "Total value of common items from groups: {}",
+        total_group_item_value
+    );
     Ok(())
 }
