@@ -9,7 +9,7 @@ struct Movement {
 }
 
 impl Movement {
-    pub fn from_line(line: &String) -> Self {
+    pub fn from_line(line: &str) -> Self {
         let line_iter: Vec<&str> = line.split(' ').collect();
         Self {
             num: line_iter[1].to_string().parse::<usize>().unwrap(),
@@ -18,7 +18,7 @@ impl Movement {
         }
     }
 
-    pub fn execute(&self, stacks: &mut Vec<Vec<char>>) {
+    pub fn execute(&self, stacks: &mut [Vec<char>]) {
         let mut tmp_storage: Vec<char> = Vec::new();
         for _ in 0..self.num {
             let elf_crate = stacks[self.src].pop().unwrap();
@@ -45,21 +45,18 @@ fn main() -> io::Result<()> {
             continue;
         }
         if !end_of_header_reached {
-            if stacks.len() == 0 {
+            if stacks.is_empty() {
                 let num_crates: usize = (line.len() + 1) / 3 + 1;
                 stacks = vec![Vec::new(); num_crates];
             }
             for (vec_idx, line_idx) in (1..line.len()).step_by(4).enumerate() {
-                match line.chars().nth(line_idx) {
-                    Some(c) => {
-                        if c.is_alphabetic() {
-                            stacks[vec_idx].insert(0, c);
-                        } else if c.is_numeric() {
-                            end_of_header_reached = true;
-                            break;
-                        }
+                if let Some(c) = line.chars().nth(line_idx) {
+                    if c.is_alphabetic() {
+                        stacks[vec_idx].insert(0, c);
+                    } else if c.is_numeric() {
+                        end_of_header_reached = true;
+                        break;
                     }
-                    None => (),
                 }
             }
         } else {
@@ -80,12 +77,12 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn print_stacks(stacks: &Vec<Vec<char>>) {
+fn print_stacks(stacks: &[Vec<char>]) {
     for (i, stack) in stacks.iter().enumerate() {
         print!("{}:", i);
         for c in stack.iter() {
             print!(" [{}]", c);
         }
-        println!("");
+        println!();
     }
 }
