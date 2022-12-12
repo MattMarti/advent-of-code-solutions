@@ -14,7 +14,7 @@ fn main() -> io::Result<()> {
     let mut elf_index: usize = 0;
     for read_line in reader.lines() {
         let line = read_line?;
-        if line == "" {
+        if line.is_empty() {
             elf_index += 1;
             calorie_totals.push(0);
             continue;
@@ -23,17 +23,17 @@ fn main() -> io::Result<()> {
     }
     let mut most_fed_elves: [usize; 3] = [0; 3];
     let mut most_calories: [u32; 3] = [0; 3];
-    most_fed_elves[0] = 1 as usize;
+    most_fed_elves[0] = 1_usize;
     most_calories[0] = calorie_totals[0];
-    for i in 1..calorie_totals.len() {
+    for (i, &total) in calorie_totals.iter().enumerate().skip(1) {
         for j in 0..3 {
-            if calorie_totals[i] > most_calories[j] {
+            if total > most_calories[j] {
                 for k in (j + 1..most_calories.len()).rev() {
                     most_fed_elves[k] = most_fed_elves[k - 1];
                     most_calories[k] = most_calories[k - 1];
                 }
                 most_fed_elves[j] = i + 1;
-                most_calories[j] = calorie_totals[i];
+                most_calories[j] = total;
                 break;
             }
         }
