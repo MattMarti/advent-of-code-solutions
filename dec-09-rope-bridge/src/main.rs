@@ -176,63 +176,63 @@ mod test {
     fn adding_head_motion_moves_head() {
         let mut rope = Rope::default();
         rope.add_motion(&HeadMotion::from_str("R 1"));
-        assert_eq!(rope.head, Coord::new(1, 0));
+        assert_eq!(rope.knots[0], Coord::new(1, 0));
         rope.add_motion(&HeadMotion::from_str("R 2"));
-        assert_eq!(rope.head, Coord::new(3, 0));
+        assert_eq!(rope.knots[0], Coord::new(3, 0));
         rope.add_motion(&HeadMotion::from_str("U 1"));
-        assert_eq!(rope.head, Coord::new(3, 1));
+        assert_eq!(rope.knots[0], Coord::new(3, 1));
         rope.add_motion(&HeadMotion::from_str("D 3"));
-        assert_eq!(rope.head, Coord::new(3, -2));
+        assert_eq!(rope.knots[0], Coord::new(3, -2));
         rope.add_motion(&HeadMotion::from_str("L 3"));
-        assert_eq!(rope.head, Coord::new(0, -2));
+        assert_eq!(rope.knots[0], Coord::new(0, -2));
     }
 
     #[test]
     fn tail_moves_cross_r() {
         let mut rope = Rope::default();
-        rope.head = Coord::new(1, 0);
+        rope.knots[0] = Coord::new(1, 0);
         rope.add_motion(&HeadMotion::from_str("R 1"));
-        assert_eq!(rope.head, Coord::new(2, 0));
-        assert_eq!(rope.tail, Coord::new(1, 0));
+        assert_eq!(rope.knots[0], Coord::new(2, 0));
+        assert_eq!(rope.knots[1], Coord::new(1, 0));
         rope.add_motion(&HeadMotion::from_str("R 3"));
-        assert_eq!(rope.head, Coord::new(5, 0));
-        assert_eq!(rope.tail, Coord::new(4, 0));
+        assert_eq!(rope.knots[0], Coord::new(5, 0));
+        assert_eq!(rope.knots[1], Coord::new(4, 0));
     }
 
     #[test]
     fn tail_moves_cross_l() {
         let mut rope = Rope::default();
-        rope.head = Coord::new(-1, 0);
+        rope.knots[0] = Coord::new(-1, 0);
         rope.add_motion(&HeadMotion::from_str("L 1"));
-        assert_eq!(rope.head, Coord::new(-2, 0));
-        assert_eq!(rope.tail, Coord::new(-1, 0));
+        assert_eq!(rope.knots[0], Coord::new(-2, 0));
+        assert_eq!(rope.knots[1], Coord::new(-1, 0));
         rope.add_motion(&HeadMotion::from_str("L 3"));
-        assert_eq!(rope.head, Coord::new(-5, 0));
-        assert_eq!(rope.tail, Coord::new(-4, 0));
+        assert_eq!(rope.knots[0], Coord::new(-5, 0));
+        assert_eq!(rope.knots[1], Coord::new(-4, 0));
     }
 
     #[test]
     fn tail_moves_cross_u() {
         let mut rope = Rope::default();
-        rope.head = Coord::new(0, 1);
+        rope.knots[0] = Coord::new(0, 1);
         rope.add_motion(&HeadMotion::from_str("U 1"));
-        assert_eq!(rope.head, Coord::new(0, 2));
-        assert_eq!(rope.tail, Coord::new(0, 1));
+        assert_eq!(rope.knots[0], Coord::new(0, 2));
+        assert_eq!(rope.knots[1], Coord::new(0, 1));
         rope.add_motion(&HeadMotion::from_str("U 3"));
-        assert_eq!(rope.head, Coord::new(0, 5));
-        assert_eq!(rope.tail, Coord::new(0, 4));
+        assert_eq!(rope.knots[0], Coord::new(0, 5));
+        assert_eq!(rope.knots[1], Coord::new(0, 4));
     }
 
     #[test]
     fn tail_moves_cross_d() {
         let mut rope = Rope::default();
-        rope.head = Coord::new(0, -1);
+        rope.knots[0] = Coord::new(0, -1);
         rope.add_motion(&HeadMotion::from_str("D 1"));
-        assert_eq!(rope.head, Coord::new(0, -2));
-        assert_eq!(rope.tail, Coord::new(0, -1));
+        assert_eq!(rope.knots[0], Coord::new(0, -2));
+        assert_eq!(rope.knots[1], Coord::new(0, -1));
         rope.add_motion(&HeadMotion::from_str("D 3"));
-        assert_eq!(rope.head, Coord::new(0, -5));
-        assert_eq!(rope.tail, Coord::new(0, -4));
+        assert_eq!(rope.knots[0], Coord::new(0, -5));
+        assert_eq!(rope.knots[1], Coord::new(0, -4));
     }
 
     #[test]
@@ -243,9 +243,9 @@ mod test {
         ];
         for (head_start, motion) in cases {
             let mut rope = Rope::default();
-            rope.head = head_start;
+            rope.knots[0] = head_start;
             rope.add_motion(&motion);
-            assert_eq!(rope.tail, Coord::new(1, 1));
+            assert_eq!(rope.knots[1], Coord::new(1, 1));
         }
     }
 
@@ -257,9 +257,9 @@ mod test {
         ];
         for (head_start, motion) in cases {
             let mut rope = Rope::default();
-            rope.head = head_start;
+            rope.knots[0] = head_start;
             rope.add_motion(&motion);
-            assert_eq!(rope.tail, Coord::new(-1, 1));
+            assert_eq!(rope.knots[1], Coord::new(-1, 1));
         }
     }
 
@@ -271,9 +271,9 @@ mod test {
         ];
         for (head_start, motion) in cases {
             let mut rope = Rope::default();
-            rope.head = head_start;
+            rope.knots[0] = head_start;
             rope.add_motion(&motion);
-            assert_eq!(rope.tail, Coord::new(-1, -1));
+            assert_eq!(rope.knots[1], Coord::new(-1, -1));
         }
     }
 
@@ -285,9 +285,9 @@ mod test {
         ];
         for (head_start, motion) in cases {
             let mut rope = Rope::default();
-            rope.head = head_start;
+            rope.knots[0] = head_start;
             rope.add_motion(&motion);
-            assert_eq!(rope.tail, Coord::new(1, -1));
+            assert_eq!(rope.knots[1], Coord::new(1, -1));
         }
     }
 
@@ -324,9 +324,9 @@ mod test {
         ];
         for (i, (head_start, motion)) in cases.iter().enumerate() {
             let mut rope = Rope::default();
-            rope.head = *head_start;
+            rope.knots[0] = *head_start;
             rope.add_motion(motion);
-            assert_eq!(rope.tail, Coord::new(0, 0), "At index {}", i);
+            assert_eq!(rope.knots[1], Coord::new(0, 0), "At index {}", i);
         }
     }
 }
