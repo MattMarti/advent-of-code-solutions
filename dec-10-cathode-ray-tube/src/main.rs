@@ -83,7 +83,6 @@ struct Display {
     pixels: Vec<char>,
     num_rows: usize,
     num_cols: usize,
-    sprite_pos: i32,
     row: usize,
     clock: usize,
 }
@@ -97,7 +96,6 @@ impl Display {
             num_cols: cols,
             row: rows - 1,
             pixels: vec!['.'; rows * cols],
-            sprite_pos: 1,
             clock: 0,
         }
     }
@@ -105,37 +103,26 @@ impl Display {
     fn spin_row(&mut self) {
         if self.clock % self.num_cols == 0 {
             self.row = (self.row + 1) % self.num_rows;
-            println!("Next row ({})", self.sprite_pos);
         }
     }
 
-    fn set_pixel_with_sprite(&mut self) {
+    fn set_pixel_with_sprite(&mut self, sprite_pos: i32) {
         let pixel_index = self.clock % self.pixels.len();
         let row_index = (pixel_index % self.num_cols) as i32;
-        if self.sprite_pos - 1 <= row_index && row_index <= self.sprite_pos + 1 {
+        if sprite_pos - 1 <= row_index && row_index <= sprite_pos + 1 {
             self.pixels[pixel_index] = '#';
         }
     }
 
-    pub fn spin_once(&mut self, cpu: &Cpu) {
-        use Instruction::*;
-        match cpu.cmd {
-            ADDX => self.set_pixel_with_sprite(),
-            NOOP => (),
-        };
+    pub fn spin_once(&mut self, sprite_pos: i32) {
+        self.set_pixel_with_sprite(sprite_pos);
         self.spin_row();
         self.clock += 1;
     }
 
-    pub fn set_sprite_position(&mut self, index: i32) {
-        //if 0 <= index && index < self.pixels.len() as i32 {
-            self.sprite_pos = index;
-        //}
-    }
-
-    pub fn draw_sprite(&self) {
+    pub fn draw_sprite(&self, sprite_pos: i32) {
         let mut sprite: Vec<char> = vec!['.'; self.num_cols];
-        for i in self.sprite_pos - 1..self.sprite_pos + 2 {
+        for i in sprite_pos - 1..sprite_pos + 2 {
             if 0 <= i && i < sprite.len() as i32 {
                 sprite[i as usize] = '#';
             }
@@ -175,10 +162,8 @@ fn main() -> io::Result<()> {
                 check_idx += 1;
             }
 
-            display.set_sprite_position(cpu.register);
-            display.spin_once(&cpu);
-
-            display.draw_sprite();
+            display.spin_once(cpu.register);
+            display.draw_sprite(cpu.register);
             display.draw();
 
             delay();
