@@ -2,21 +2,27 @@ use std::env;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 
-#[derive(Default)]
-struct SignalSlider {
+struct SignalSlider<const WINDOW: usize> {
     pub idx: usize,
-    buf: [char; 4],
+    pub buf: [char; WINDOW],
 }
 
-impl SignalSlider {
+impl<const WINDOW: usize> SignalSlider<WINDOW> {
+    fn default() -> Self {
+        Self {
+            idx: 0,
+            buf: [' '; WINDOW],
+        }
+    }
+
     fn push(&mut self, c: char) {
-        self.buf[self.idx % 4] = c;
+        self.buf[self.idx % WINDOW] = c;
         self.idx += 1;
     }
 
     fn locked(&self) -> bool {
         for (i, &left) in self.buf.iter().enumerate() {
-            for j in i+1..self.buf.len() {
+            for j in i + 1..self.buf.len() {
                 if left == self.buf[j] {
                     return false;
                 }
@@ -24,20 +30,20 @@ impl SignalSlider {
         }
         true
     }
-}
 
-fn find_packet_start(signal: &Vec<char>) -> usize {
-    let mut slider = SignalSlider::default();
-    for i in 0..4 {
-        slider.push(signal[i]);
-    }
-    for i in 4..signal.len() {
-        slider.push(signal[i]);
-        if slider.locked() {
-            break;
+    pub fn find_start(&mut self, signal: &Vec<char>) -> usize {
+        self.idx = 0;
+        for &c in signal.iter().take(self.buf.len()) {
+            self.push(c);
         }
+        for &c in signal.iter().skip(self.buf.len()) {
+            self.push(c);
+            if self.locked() {
+                break;
+            }
+        }
+        self.idx
     }
-    slider.idx
 }
 
 fn main() -> io::Result<()> {
@@ -49,7 +55,16 @@ fn main() -> io::Result<()> {
 
     for read_line in reader.lines() {
         let line = read_line?;
-        println!("Signal start: {}", find_packet_start(&line.chars().collect()));
+        let mut packet_slider = SignalSlider::<4>::default();
+        let mut message_slider = SignalSlider::<14>::default();
+        println!(
+            "Packet start: {}",
+            packet_slider.find_start(&line.chars().collect())
+        );
+        println!(
+            "Message start: {}",
+            message_slider.find_start(&line.chars().collect())
+        );
     }
 
     Ok(())
