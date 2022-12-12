@@ -52,20 +52,22 @@ fn main() -> io::Result<()> {
     println!("Filename: {}", fname);
     let file = File::open(fname)?;
     let reader = BufReader::new(file);
-
+    let mut signal: String = String::default();
     for read_line in reader.lines() {
         let line = read_line?;
-        let mut packet_slider = SignalSlider::<4>::default();
-        let mut message_slider = SignalSlider::<14>::default();
-        println!(
-            "Packet start: {}",
-            packet_slider.find_start(&line.chars().collect())
-        );
-        println!(
-            "Message start: {}",
-            message_slider.find_start(&line.chars().collect())
-        );
+        signal.push_str(&line);
     }
+    println!("Length of input: {}", signal.len());
+    let mut packet_slider = SignalSlider::<4>::default();
+    let mut message_slider = SignalSlider::<14>::default();
+    println!(
+        "Packet start: {}",
+        packet_slider.find_start(&signal.chars().collect())
+    );
+    println!(
+        "Message start: {}",
+        message_slider.find_start(&signal.chars().collect())
+    );
 
     Ok(())
 }
