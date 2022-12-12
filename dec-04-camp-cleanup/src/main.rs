@@ -21,6 +21,13 @@ impl Range {
     pub fn contains(&self, cmp: &Range) -> bool {
         self.min <= cmp.min && cmp.max <= self.max
     }
+
+    pub fn overlaps(&self, cmp: &Range) -> bool {
+        (self.min <= cmp.min && cmp.min <= self.max)
+            || (cmp.min <= self.min && self.min <= cmp.max)
+            || (self.min <= cmp.max && cmp.max <= self.max)
+            || (cmp.min <= self.max && self.max <= cmp.max)
+    }
 }
 
 fn get_ranges(line: &str) -> (Range, Range) {
@@ -34,14 +41,19 @@ fn main() -> io::Result<()> {
     println!("Filename: {}", fname);
     let file = File::open(fname)?;
     let reader = BufReader::new(file);
+    let mut num_contains = 0;
     let mut num_overlaps = 0;
     for read_line in reader.lines() {
         let line = read_line?;
         let (left, right) = get_ranges(&line);
         if left.contains(&right) || right.contains(&left) {
-            num_overlaps += 1;
+            num_contains += 1;
+        }
+        if left.overlaps(&right) {
+            num_overlaps += 1
         }
     }
+    println!("Number of strict subset ranges: {}", num_contains);
     println!("Number of overlapping ranges: {}", num_overlaps);
     Ok(())
 }
