@@ -14,13 +14,13 @@ fn parse_line(line: String) -> (Hand, Hand) {
         "A" => Hand::Rock,
         "B" => Hand::Paper,
         "C" => Hand::Scissors,
-        _ => panic!("Inavlid strategy value: {}", hands[1]),
+        x => panic!("Inavlid strategy value: {}", x),
     };
     let player_hand = match hands[1] {
         "X" => Hand::Rock,
         "Y" => Hand::Paper,
         "Z" => Hand::Scissors,
-        _ => panic!("Inavlid strategy value: {}", hands[1]),
+        x => panic!("Inavlid strategy value: {}", x),
     };
     (opponent_hand, player_hand)
 }
