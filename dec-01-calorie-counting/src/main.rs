@@ -1,9 +1,12 @@
 use std::fs::File;
+use std::env;
 use std::io::{self, prelude::*, BufReader};
 
 fn main() -> io::Result<()> {
-    // Get file input
-    let file = File::open("example-calorie-list.txt")?; // TODO get file argument
+    let args: Vec<String> = env::args().skip(1).collect();
+    let fname = &args[0];
+    println!("Filename: {}", fname);
+    let file = File::open(fname)?;
     let reader = BufReader::new(file);
     let mut current_elf: u32 = 0;
     let mut current_calories: u32 = 0;
@@ -22,6 +25,7 @@ fn main() -> io::Result<()> {
             most_calories = current_calories;
         }
     }
+    println!("There are {} elves", current_elf);
     println!("The most fed elf is # {}", most_fed_elf + 1);
     println!("It has {} calories worth of food.", most_calories);
     Ok(())
