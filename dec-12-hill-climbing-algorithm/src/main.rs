@@ -1,7 +1,6 @@
 use std::env;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
-use std::{error::Error, fmt};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Default, PartialEq)]
 struct Point {
@@ -34,19 +33,6 @@ impl Node {
             local_goal: f32::INFINITY,
             position: *position,
             parent: Point { x: 0, y: 0 }, // TODO See if you can store a reference here
-        }
-    }
-
-    pub fn from_parent(position: &Point, parent: &Point) -> Self {
-        Self {
-            visited: false,
-            global_goal: f32::INFINITY,
-            local_goal: f32::INFINITY,
-            position: *position,
-            parent: Point {
-                x: parent.x,
-                y: parent.y,
-            },
         }
     }
 
@@ -92,7 +78,7 @@ impl Node {
     }
 
     fn calc_heuristic(&self, end: &Point) -> f32 {
-        self.position.dist(&end)
+        self.position.dist(end)
     }
 }
 
@@ -101,7 +87,7 @@ fn get_path_astar(map: &[Vec<u8>], start: &Point, end: &Point) -> Result<Vec<Poi
     let mut all_nodes = Vec::<Vec<Node>>::new(); // TODO use a map instead
     for (i, row) in map.iter().enumerate() {
         all_nodes.push(Vec::<Node>::new());
-        for (j, col) in row.iter().enumerate() {
+        for (j, _col) in row.iter().enumerate() {
             all_nodes
                 .last_mut()
                 .unwrap()
@@ -112,13 +98,13 @@ fn get_path_astar(map: &[Vec<u8>], start: &Point, end: &Point) -> Result<Vec<Poi
     checks.push(Node::from_starting_point(end, start));
 
     // Visit every node found in the algorithm
-    while checks.len() > 0 {
+    while !checks.is_empty() {
         // Sort by global goal, with highest first, lowest last
         checks.sort_by(|a, b| b.global_goal.partial_cmp(&a.global_goal).unwrap());
         let node = checks.pop().unwrap();
 
         // Check all the neighbors
-        for neighbor_point in node.get_neighbors(&map).iter_mut() {
+        for neighbor_point in node.get_neighbors(map).iter_mut() {
             let mut neighbor = all_nodes[neighbor_point.x][neighbor_point.y];
 
             // If the heuristic is better, then replace the parent of the neighbor
@@ -169,11 +155,11 @@ fn main() -> io::Result<()> {
             let height = match letter {
                 'S' => {
                     start_point = Point { x: row, y: col };
-                    'a' as u8
+                    b'a'
                 }
                 'E' => {
                     end_point = Point { x: row, y: col };
-                    'z' as u8
+                    b'z'
                 }
                 _ => letter as u8,
             };
@@ -191,14 +177,11 @@ fn main() -> io::Result<()> {
     let mut shortest_path = path_result.unwrap().len();
     for (i, row) in terrain.iter().enumerate() {
         for (j, &height) in row.iter().enumerate() {
-            if height == ('a' as u8) {
-                match get_path_astar(&terrain, &Point { x: i, y: j }, &end_point) {
-                    Ok(path) => {
-                        if path.len() - 1 < shortest_path {
-                            shortest_path = path.len() - 1
-                        }
+            if height == b'a' {
+                if let Ok(path) = get_path_astar(&terrain, &Point { x: i, y: j }, &end_point) {
+                    if path.len() - 1 < shortest_path {
+                        shortest_path = path.len() - 1
                     }
-                    Err(_) => (),
                 }
             }
         }
