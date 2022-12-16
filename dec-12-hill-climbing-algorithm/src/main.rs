@@ -182,10 +182,31 @@ fn main() -> io::Result<()> {
     }
 
     let path_result = get_path_astar(&terrain, &start_point, &end_point);
-    match path_result {
+    match &path_result {
         Ok(path) => println!("Length of path is {}", path.len() - 1),
         Err(msg) => println!("Failed to find path: {}", msg),
     }
+
+    // Now find the shortest path from any square of 'a'
+    let mut shortest_path = path_result.unwrap().len();
+    for (i, row) in terrain.iter().enumerate() {
+        for (j, &height) in row.iter().enumerate() {
+            if height == ('a' as u8) {
+                match get_path_astar(&terrain, &Point { x: i, y: j }, &end_point) {
+                    Ok(path) => {
+                        if path.len() - 1 < shortest_path {
+                            shortest_path = path.len() - 1
+                        }
+                    }
+                    Err(_) => (),
+                }
+            }
+        }
+    }
+    println!(
+        "The shortest possible path starting at 'a' is {}",
+        shortest_path
+    );
 
     Ok(())
 }
