@@ -3,6 +3,7 @@ use std::env;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 use std::option::Option;
+use std::cmp::Ordering;
 
 struct Packet {
     value: Option<u8>,
@@ -39,7 +40,7 @@ impl Packet {
             } else if char_i == '[' {
                 let (end, packet) = Self::from_str_slice(&s[i + 1..]);
                 packets.push(packet);
-                i += end;
+                i += end + 1;
             } else if char_i == ']' {
                 return (
                     i,
@@ -57,6 +58,13 @@ impl Packet {
     pub fn from_str(s: &str) -> Self {
         let (_, this) = Self::from_str_slice(&s[1..]);
         this
+    }
+
+    pub fn less_than(&self, other: &Self) -> bool {
+
+
+
+        return false;
     }
 }
 
@@ -79,38 +87,24 @@ impl std::fmt::Debug for Packet {
     }
 }
 
-//impl PartialEq for Packet {
-//    fn eq(&self, other: &Rhs) -> bool {
-//        false // TODO Implement this
-//    }
-//
-//    fn ne(&self, other: &Rhs) -> bool {
-//        !self.ne(other)
-//    }
-//}
-//
-//impl PartialOrd for Packet {
-//    fn partial_cmp(&self, other: &Rhs) -> Option<Ordering> {}
-//
-//    fn lt(&self, other: &Rhs) -> bool {
-//        false
-//    }
-//    fn le(&self, other: &Rhs) -> bool {
-//        if self.eq(other) {
-//            return true;
-//        }
-//        self.lt(other)
-//    }
-//    fn gt(&self, other: &Rhs) -> bool {
-//        false
-//    }
-//    fn ge(&self, other: &Rhs) -> bool {
-//        if self.eq(other) {
-//            return true;
-//        }
-//        self.gt(other)
-//    }
-//}
+impl PartialEq for Packet {
+    fn eq(&self, other: &Self) -> bool {
+        false // TODO Implement this
+    }
+
+    fn ne(&self, other: &Self) -> bool {
+        !self.ne(other)
+    }
+}
+
+impl PartialOrd for Packet {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        if self.less_than(other) {
+            return Some(Ordering::Less);
+        }
+        Some(Ordering::Greater)
+    }
+}
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().skip(1).collect();
