@@ -1,10 +1,11 @@
 use regex::Regex;
 use std::env;
 use std::fs::File;
-use std::io::{self, prelude::*, BufReader};
+use std::io::{prelude::*, BufReader};
 use std::option::Option;
 use std::cmp::Ordering;
 
+#[derive(Clone, Eq)]
 struct Packet {
     pub value: Option<u8>,
     pub sub_packets: Vec<Packet>,
@@ -82,41 +83,36 @@ impl Packet {
     pub fn is_num(&self) -> bool {
         !self.value.is_none()
     }
+}
 
-    pub fn less_than(&self, other: &Self) -> Option<bool> {
-        println!("- Compare {:?} vs {:?}: ", self, other);
-        print!("- ");
+impl PartialOrd for Packet {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         if self.is_num() && other.is_num() {
             let lhs: u8 = self.value.unwrap();
             let rhs: u8 = other.value.unwrap();
             if lhs < rhs {
-                println!("Less");
-                return Some(true);
+                return Some(Ordering::Less);
             } else if lhs > rhs {
-                println!("More");
-                return Some(false);
+                return Some(Ordering::Greater);
             } else {
-                println!("Eq");
                 return None;
             }
         }
         else if self.is_num() {
-            println!("Add list to LHS");
             let new_lhs = Packet::from_values_vec(&vec![self.value.unwrap()]);
-            return new_lhs.less_than(&other);
+            return new_lhs.partial_cmp(&other);
         }
         else if other.is_num() {
-            println!("Add list to RHS");
             let new_rhs = Packet::from_values_vec(&vec![other.value.unwrap()]);
-            return self.less_than(&new_rhs);
+            return self.partial_cmp(&new_rhs);
         }
         for i in 0..other.sub_packets.len() {
             if i == self.sub_packets.len() {
-                return Some(true);
+                return Some(Ordering::Less);
             }
             let lhs_packet = &self.sub_packets[i];
             let rhs_packet = &other.sub_packets[i];
-            let cmp = lhs_packet.less_than(rhs_packet);
+            let cmp = lhs_packet.partial_cmp(rhs_packet);
             match cmp {
                 Some(x) => {
                     return Some(x);
@@ -125,7 +121,7 @@ impl Packet {
             }
         }
         if self.sub_packets.len() > other.sub_packets.len() {
-            return Some(false);
+            return Some(Ordering::Greater);
         }
         None
     }
@@ -152,7 +148,7 @@ impl std::fmt::Debug for Packet {
 
 impl PartialEq for Packet {
     fn eq(&self, other: &Self) -> bool {
-        false // TODO Implement this
+        self.partial_cmp(other).is_none()
     }
 
     fn ne(&self, other: &Self) -> bool {
@@ -160,30 +156,22 @@ impl PartialEq for Packet {
     }
 }
 
-impl PartialOrd for Packet {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match self.less_than(other) {
-            Some(x) => {
-                match x {
-                    true => Some(Ordering::Less),
-                    false => Some(Ordering::Greater),
-                }
-            },
-            None => Some(Ordering::Equal)
+impl Ord for Packet {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self.partial_cmp(other) {
+            Some(x) => x,
+            None => Ordering::Equal,
         }
     }
 }
 
-fn main() -> io::Result<()> {
-    let args: Vec<String> = env::args().skip(1).collect();
-    let fname = &args[0];
-    println!("Filename: {}", fname);
-    let file = File::open(fname)?;
+fn load_packets(fname: &str) -> (Vec<Packet>, Vec<Packet>) {
+    let file = File::open(fname).unwrap();
     let reader = BufReader::new(file);
     let mut left_packets = Vec::<Packet>::new();
     let mut right_packets = Vec::<Packet>::new();
     for (row, read_line) in reader.lines().enumerate() {
-        let line = read_line?;
+        let line = read_line.unwrap();
         if line.is_empty() {
             continue;
         }
@@ -202,8 +190,16 @@ fn main() -> io::Result<()> {
             right_packets.push(Packet::from_str(&line));
         }
     }
+    (left_packets, right_packets)
+}
 
-    // TODO count number sorted
+fn main() {
+    let args: Vec<String> = env::args().skip(1).collect();
+    let fname = &args[0];
+    println!("Filename: {}", fname);
+
+    let (left_packets, right_packets) = load_packets(&fname);
+
     let mut total_ordered = 0;
     for i in 0..left_packets.len() {
         println!("---");
@@ -214,7 +210,31 @@ fn main() -> io::Result<()> {
             total_ordered += i + 1;
         }
     }
-    println!("Sum of ordered indices: {}", total_ordered);
+    println!("(Part 1) Sum of ordered indices: {}", total_ordered);
 
-    Ok(())
+    // Construct vector of all packets, including divider packets
+    let mut all_packets = Vec::<Packet>::new();
+    for lhs in left_packets.iter() {
+        all_packets.push(lhs.clone());
+    }
+    for rhs in left_packets.iter() {
+        all_packets.push(rhs.clone());
+    }
+    let (divider_left, divider_right) = load_packets(&"divider-packets.txt");
+    all_packets.extend(divider_left.clone());
+    all_packets.extend(divider_right.clone());
+    all_packets.sort();
+
+    // Find divider packets
+    let mut first_idx = 0;
+    let mut second_idx = 0;
+    for (i, packet) in all_packets.iter().enumerate() {
+        if packet.clone() == divider_left[0] {
+            first_idx = i + 1;
+        }
+        else if packet.clone() == divider_right[0] {
+            second_idx = i + 1;
+        }
+    }
+    println!("(Part 2) Decoder key indices: {}", first_idx * second_idx);
 }
