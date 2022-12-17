@@ -6,11 +6,30 @@ use std::option::Option;
 use std::cmp::Ordering;
 
 struct Packet {
-    value: Option<u8>,
-    sub_packets: Vec<Packet>,
+    pub value: Option<u8>,
+    pub sub_packets: Vec<Packet>,
 }
 
 impl Packet {
+    pub fn from_value(value: u8) -> Self{
+        Self {
+            value: Some(value),
+            sub_packets: Vec::<>::new(),
+        }
+    }
+
+    pub fn from_values_vec(values: &Vec<u8>) -> Self {
+        let mut sub_packets = Vec::<Self>::new();
+        for &v in values.iter() {
+            sub_packets.push(Self::from_value(v));
+        }
+
+        Self {
+            value: None,
+            sub_packets: sub_packets,
+        }
+    }
+
     fn from_str_slice(s: &str) -> (usize, Self) {
         let re_only_number = Regex::new(r"^\d+$").unwrap();
         if re_only_number.is_match(s) {
@@ -60,11 +79,55 @@ impl Packet {
         this
     }
 
-    pub fn less_than(&self, other: &Self) -> bool {
+    pub fn is_num(&self) -> bool {
+        !self.value.is_none()
+    }
 
-
-
-        return false;
+    pub fn less_than(&self, other: &Self) -> Option<bool> {
+        println!("- Compare {:?} vs {:?}: ", self, other);
+        print!("- ");
+        if self.is_num() && other.is_num() {
+            let lhs: u8 = self.value.unwrap();
+            let rhs: u8 = other.value.unwrap();
+            if lhs < rhs {
+                println!("Less");
+                return Some(true);
+            } else if lhs > rhs {
+                println!("More");
+                return Some(false);
+            } else {
+                println!("Eq");
+                return None;
+            }
+        }
+        else if self.is_num() {
+            println!("Add list to LHS");
+            let new_lhs = Packet::from_values_vec(&vec![self.value.unwrap()]);
+            return new_lhs.less_than(&other);
+        }
+        else if other.is_num() {
+            println!("Add list to RHS");
+            let new_rhs = Packet::from_values_vec(&vec![other.value.unwrap()]);
+            return self.less_than(&new_rhs);
+        }
+        for i in 0..other.sub_packets.len() {
+            if i == self.sub_packets.len() {
+                return Some(true);
+            }
+            let lhs_packet = &self.sub_packets[i];
+            let rhs_packet = &other.sub_packets[i];
+            let cmp = lhs_packet.less_than(rhs_packet);
+            match cmp {
+                Some(x) => {
+                    return Some(x);
+                },
+                None => {}, // continue
+            }
+        }
+        if self.sub_packets.len() > other.sub_packets.len() {
+            return Some(false);
+        }
+        None
     }
 }
 
@@ -99,10 +162,15 @@ impl PartialEq for Packet {
 
 impl PartialOrd for Packet {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        if self.less_than(other) {
-            return Some(Ordering::Less);
+        match self.less_than(other) {
+            Some(x) => {
+                match x {
+                    true => Some(Ordering::Less),
+                    false => Some(Ordering::Greater),
+                }
+            },
+            None => Some(Ordering::Equal)
         }
-        Some(Ordering::Greater)
     }
 }
 
@@ -136,11 +204,17 @@ fn main() -> io::Result<()> {
     }
 
     // TODO count number sorted
+    let mut total_ordered = 0;
     for i in 0..left_packets.len() {
         println!("---");
         println!("{:?}", left_packets[i]);
         println!("{:?}", right_packets[i]);
+        if left_packets[i] < right_packets[i] {
+            println!("Is LT");
+            total_ordered += i + 1;
+        }
     }
+    println!("Sum of ordered indices: {}", total_ordered);
 
     Ok(())
 }
