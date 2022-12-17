@@ -22,7 +22,6 @@ impl Packet {
             );
         }
 
-        // Iterate through the string
         let chars = s.chars();
         let mut packets = Vec::<Packet>::new();
         let mut i = 0;
@@ -36,14 +35,14 @@ impl Packet {
                 let digit_match = re_number.find(&s[i..]).unwrap();
                 let (end, packet) = Self::from_str_slice(&s[i..i + digit_match.end()]);
                 packets.push(packet);
-                i == end;
+                i += end - 1;
             } else if char_i == '[' {
-                let (next_index, packet) = Self::from_str_slice(&s[i + 1..]);
+                let (end, packet) = Self::from_str_slice(&s[i + 1..]);
                 packets.push(packet);
-                i += next_index;
+                i += end;
             } else if char_i == ']' {
                 return (
-                    i + 1,
+                    i,
                     Self {
                         value: None,
                         sub_packets: packets,
@@ -74,26 +73,43 @@ impl std::fmt::Debug for Packet {
                     }
                 }
                 write!(f, "]");
-            },
+            }
         };
         Ok(())
     }
 }
 
-//impl Clone for Packet {/
-//
-//}
-//
-//impl Copy for Packet {
-//
-//}
-//
 //impl PartialEq for Packet {
+//    fn eq(&self, other: &Rhs) -> bool {
+//        false // TODO Implement this
+//    }
 //
+//    fn ne(&self, other: &Rhs) -> bool {
+//        !self.ne(other)
+//    }
 //}
 //
-//impl Eq for Packet {
+//impl PartialOrd for Packet {
+//    fn partial_cmp(&self, other: &Rhs) -> Option<Ordering> {}
 //
+//    fn lt(&self, other: &Rhs) -> bool {
+//        false
+//    }
+//    fn le(&self, other: &Rhs) -> bool {
+//        if self.eq(other) {
+//            return true;
+//        }
+//        self.lt(other)
+//    }
+//    fn gt(&self, other: &Rhs) -> bool {
+//        false
+//    }
+//    fn ge(&self, other: &Rhs) -> bool {
+//        if self.eq(other) {
+//            return true;
+//        }
+//        self.gt(other)
+//    }
 //}
 
 fn main() -> io::Result<()> {
