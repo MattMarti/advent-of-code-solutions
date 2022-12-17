@@ -217,7 +217,7 @@ fn main() {
     for lhs in left_packets.iter() {
         all_packets.push(lhs.clone());
     }
-    for rhs in left_packets.iter() {
+    for rhs in right_packets.iter() {
         all_packets.push(rhs.clone());
     }
     let (divider_left, divider_right) = load_packets(&"divider-packets.txt");
