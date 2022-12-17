@@ -1,9 +1,9 @@
 use regex::Regex;
+use std::cmp::Ordering;
 use std::env;
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
 use std::option::Option;
-use std::cmp::Ordering;
 
 #[derive(Clone, Eq)]
 struct Packet {
@@ -12,10 +12,10 @@ struct Packet {
 }
 
 impl Packet {
-    pub fn from_value(value: u8) -> Self{
+    pub fn from_value(value: u8) -> Self {
         Self {
             value: Some(value),
-            sub_packets: Vec::<>::new(),
+            sub_packets: Vec::new(),
         }
     }
 
@@ -97,12 +97,10 @@ impl PartialOrd for Packet {
             } else {
                 return None;
             }
-        }
-        else if self.is_num() {
+        } else if self.is_num() {
             let new_lhs = Packet::from_values_vec(&vec![self.value.unwrap()]);
-            return new_lhs.partial_cmp(&other);
-        }
-        else if other.is_num() {
+            return new_lhs.partial_cmp(other);
+        } else if other.is_num() {
             let new_rhs = Packet::from_values_vec(&vec![other.value.unwrap()]);
             return self.partial_cmp(&new_rhs);
         }
@@ -113,11 +111,8 @@ impl PartialOrd for Packet {
             let lhs_packet = &self.sub_packets[i];
             let rhs_packet = &other.sub_packets[i];
             let cmp = lhs_packet.partial_cmp(rhs_packet);
-            match cmp {
-                Some(x) => {
-                    return Some(x);
-                },
-                None => {}, // continue
+            if let Some(x) = cmp {
+                return Some(x);
             }
         }
         if self.sub_packets.len() > other.sub_packets.len() {
@@ -231,8 +226,7 @@ fn main() {
     for (i, packet) in all_packets.iter().enumerate() {
         if packet.clone() == divider_left[0] {
             first_idx = i + 1;
-        }
-        else if packet.clone() == divider_right[0] {
+        } else if packet.clone() == divider_right[0] {
             second_idx = i + 1;
         }
     }
