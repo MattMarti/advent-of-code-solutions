@@ -28,7 +28,7 @@ struct World {
 }
 
 impl World {
-    pub fn from_verticies(vertices: &Vec<Vec<Point>>) -> Self {
+    pub fn from_verticies(vertices: &[Vec<Point>]) -> Self {
         const NUM_ROWS: usize = 256;
         const NUM_COLS: usize = 1000;
         let mut tiles = vec![vec![Tile::Empty; NUM_COLS]; NUM_ROWS];
@@ -93,7 +93,7 @@ impl World {
     }
 
     pub fn can_drop(&self) -> bool {
-        self.path.len() > 0
+        !self.path.is_empty()
     }
 
     pub fn drop_sand(&mut self) {
@@ -109,7 +109,7 @@ impl World {
             if end_point.y > self.tiles.len() {
                 break;
             }
-            match self.get_next_path_point(&end_point) {
+            match self.get_next_path_point(end_point) {
                 Some(point) => self.path.push(point),
                 None => break,
             };
@@ -148,7 +148,7 @@ fn load_vertices(fname: &str) -> Vec<Vec<Point>> {
         // Iterate over point
         let mut vertices = Vec::<Point>::new();
         for points in line.split(" -> ").collect::<Vec<&str>>() {
-            let coordstr = points.split(",").collect::<Vec<&str>>();
+            let coordstr = points.split(',').collect::<Vec<&str>>();
             vertices.push(Point {
                 x: coordstr[0].parse::<usize>().unwrap(),
                 y: coordstr[1].parse::<usize>().unwrap(),
@@ -176,7 +176,7 @@ impl std::fmt::Debug for World {
                     Tile::Empty => write!(f, "."),
                 };
             }
-            write!(f, "\n");
+            writeln!(f);
         }
         Ok(())
     }
@@ -193,7 +193,7 @@ fn main() {
     let fname = &args[0];
     info!("Filename: {}", fname);
 
-    let vertices = load_vertices(&fname);
+    let vertices = load_vertices(fname);
     debug!("{:?}", vertices);
 
     let mut world = World::from_verticies(&vertices);
