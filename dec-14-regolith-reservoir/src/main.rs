@@ -1,4 +1,5 @@
 use env_logger;
+use log::LevelFilter;
 use log::{debug, info, trace};
 use std::env;
 use std::fs::File;
@@ -182,13 +183,20 @@ impl std::fmt::Debug for World {
     }
 }
 
-fn main() {
+fn setup_logger() {
+    let env = env_logger::Env::new().filter("RUST_LOG");
     env_logger::builder()
         .format_timestamp(None)
         .format_indent(None)
         .format_target(false)
         .format_level(false)
+        .filter_level(LevelFilter::Info)
+        .parse_env(env)
         .init();
+}
+
+fn main() {
+    setup_logger();
     let args: Vec<String> = env::args().skip(1).collect();
     let fname = &args[0];
     info!("Filename: {}", fname);
