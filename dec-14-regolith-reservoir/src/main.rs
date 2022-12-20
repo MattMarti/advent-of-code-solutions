@@ -1,3 +1,5 @@
+use env_logger;
+use log::{debug, info, trace};
 use std::env;
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
@@ -20,46 +22,74 @@ struct World {
     spawn: Point,
     num_sand: usize,
     path: Vec<Point>,
+    min_rock_x: usize,
+    max_rock_x: usize,
+    max_rock_y: usize,
 }
 
 impl World {
     pub fn from_verticies(vertices: &Vec<Vec<Point>>) -> Self {
-        let spawn = Point { x: 500, y: 0 };
-        let mut this = Self {
-            tiles: vec![vec![Tile::Empty; 1000]; 256],
-            spawn: spawn,
-            num_sand: 0,
-            path: vec![spawn; 1],
-        };
+        const NUM_ROWS: usize = 256;
+        const NUM_COLS: usize = 1000;
+        let mut tiles = vec![vec![Tile::Empty; NUM_COLS]; NUM_ROWS];
+        let spawn_point = Point { x: 500, y: 0 };
+        let mut min_x = NUM_COLS;
+        let mut max_x = 0;
+        let mut max_y = 0;
         for points in vertices.iter() {
-            print!("{:?}", points[0]);
+            trace!("{:?}", points[0]);
             for i in 1..points.len() {
-                print!(" -> {:?}", points[i]);
+                trace!(" -> {:?}", points[i]);
                 let start = points[i - 1];
                 let end = points[i];
                 if start.x < end.x {
                     for x in start.x..=end.x {
-                        this.tiles[end.y][x] = Tile::Rock;
+                        tiles[end.y][x] = Tile::Rock;
                     }
                 } else if start.x > end.x {
                     for x in end.x..=start.x {
-                        this.tiles[end.y][x] = Tile::Rock;
+                        tiles[end.y][x] = Tile::Rock;
                     }
                 } else if start.y < end.y {
                     for y in start.y..=end.y {
-                        this.tiles[y][end.x] = Tile::Rock;
+                        tiles[y][end.x] = Tile::Rock;
                     }
                 } else if start.y > end.y {
                     for y in end.y..=start.y {
-                        this.tiles[y][end.x] = Tile::Rock;
+                        tiles[y][end.x] = Tile::Rock;
                     }
                 } else {
-                    this.tiles[end.y][end.x] = Tile::Rock;
+                    tiles[end.y][end.x] = Tile::Rock;
+                }
+                if max_y < start.y || max_y < end.y {
+                    max_y = std::cmp::max(start.y, end.y);
+                }
+                if max_x < start.x || max_x < end.x {
+                    max_x = std::cmp::max(start.x, end.x);
+                }
+                if start.x < min_x || end.x < min_x {
+                    min_x = std::cmp::min(start.x, end.x);
                 }
             }
-            println!();
+            trace!("\n");
         }
-        this
+        Self {
+            tiles: tiles,
+            spawn: spawn_point,
+            num_sand: 0,
+            path: vec![spawn_point; 1],
+            min_rock_x: min_x,
+            max_rock_x: max_x,
+            max_rock_y: max_y,
+        }
+    }
+
+    fn add_floor(&mut self) {
+        let floor_y = self.max_rock_y + 2;
+        for j in 0..self.tiles[floor_y].len() {
+            self.tiles[floor_y][j] = Tile::Rock;
+        }
+        self.path = vec![self.spawn; 1];
     }
 
     pub fn can_drop(&self) -> bool {
@@ -131,28 +161,12 @@ fn load_vertices(fname: &str) -> Vec<Vec<Point>> {
 
 impl std::fmt::Debug for World {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        let mut min_x = self.tiles[0].len();
-        let mut max_x = 0;
-        let mut max_y = 0;
-        for i in 0..self.tiles.len() {
-            for j in 0..self.tiles[i].len() {
-                if self.tiles[i][j] == Tile::Rock {
-                    if j < min_x {
-                        min_x = j;
-                    }
-                    if max_x < j {
-                        max_x = j;
-                    }
-                    if max_y < i {
-                        max_y = i;
-                    }
-                }
-            }
-        }
-        for i in 0..=max_y {
+        for i in 0..=self.max_rock_y + 2 {
             write!(f, "{:>3} ", i);
-            for j in std::cmp::max(0, min_x - 2)..=std::cmp::min(self.tiles[i].len(), max_x + 2) {
-                if (Point{x: j, y: i}) == self.spawn {
+            for j in std::cmp::max(0, self.min_rock_x - 2)
+                ..=std::cmp::min(self.tiles[i].len(), self.max_rock_x + 2)
+            {
+                if (Point { x: j, y: i }) == self.spawn {
                     write!(f, "+");
                     continue;
                 }
@@ -169,24 +183,40 @@ impl std::fmt::Debug for World {
 }
 
 fn main() {
+    env_logger::builder()
+        .format_timestamp(None)
+        .format_indent(None)
+        .format_target(false)
+        .format_level(false)
+        .init();
     let args: Vec<String> = env::args().skip(1).collect();
     let fname = &args[0];
-    println!("Filename: {}", fname);
+    info!("Filename: {}", fname);
 
     let vertices = load_vertices(&fname);
-    println!("{:?}", vertices);
+    debug!("{:?}", vertices);
 
     let mut world = World::from_verticies(&vertices);
     while world.can_drop() {
         world.drop_sand();
-        println!("{:?}", world);
-        println!("Last: {}", world.path.last().unwrap().y);
-        println!();
+        trace!("{:?}", world);
+        debug!("Last: {}", world.path.last().unwrap().y);
+        trace!("\n");
         if world.path.last().unwrap().y >= world.tiles.len() - 2 {
-            println!("Last: {}", world.path.last().unwrap().y);
-            println!();
             break;
         }
     }
-    println!("Number sand dropped: {}", world.num_sand - 1);
+    info!("Part 1: Number sand dropped: {}", world.num_sand - 1);
+
+    world.add_floor();
+    while world.can_drop() {
+        world.drop_sand();
+        trace!("{:?}", world);
+        match world.path.last() {
+            Some(y) => debug!("Last: {}", world.path.last().unwrap().y),
+            None => debug!("Ran out of space to drop sand"),
+        };
+        trace!("\n");
+    }
+    info!("Part 2: Number sand dropped: {}", world.num_sand - 1);
 }
