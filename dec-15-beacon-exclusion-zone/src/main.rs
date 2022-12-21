@@ -92,7 +92,10 @@ impl Range {
     }
 
     pub fn overlaps(&self, other: &Range) -> bool {
-        in_range(self.start, other.start, self.end) || in_range(self.start, other.end, self.end)
+        in_range(self.start, other.start, self.end)
+            || in_range(self.start, other.end, self.end)
+            || in_range(other.start, self.start, other.end)
+            || in_range(other.start, self.end, other.end)
     }
 
     pub fn from_overlapping(a: &Range, b: &Range) -> Option<Self> {
@@ -114,6 +117,7 @@ fn get_overlapping_ranges(ranges: &[Range]) -> Vec<Range> {
     let mut overlapped_ranges = Vec::<Range>::new();
     overlapped_ranges.push(ranges[0]);
 
+    let mut no_overlaps = true;
     for range in ranges.iter().skip(1) {
         let mut found_overlap = false;
         for overlap in overlapped_ranges.iter_mut() {
@@ -121,6 +125,7 @@ fn get_overlapping_ranges(ranges: &[Range]) -> Vec<Range> {
                 Some(r) => {
                     *overlap = r.clone();
                     found_overlap = true;
+                    no_overlaps = false;
                 }
                 None => (),
             };
@@ -129,7 +134,7 @@ fn get_overlapping_ranges(ranges: &[Range]) -> Vec<Range> {
             overlapped_ranges.push(*range);
         }
     }
-    if overlapped_ranges.len() == ranges.len() {
+    if no_overlaps {
         return overlapped_ranges;
     }
     get_overlapping_ranges(&overlapped_ranges)
@@ -152,23 +157,22 @@ fn count_no_possible_beacons(
     let overlaps = get_overlapping_ranges(&ranges);
     trace!("Overlapping ranges: {:?}", overlaps);
 
-    // Subtract overlapping range lengths from max_x
+    // Can't be in scan lines
     let mut num_points: usize = 0;
     for r in overlaps.iter() {
         num_points += (r.end - r.start) as usize + 1;
     }
 
-    // Subtract beacon positions outside of ranges
+    // If there's a beacon in a scan, then there is a beacon
     for b in beacons.iter() {
         if b.y != row {
             continue;
         }
-        let mut outside_ranges = true;
+        let mut inside_ranges = false;
         for r in overlaps.iter() {
-            outside_ranges &= !in_range(r.start, b.x, r.end);
+            inside_ranges |= in_range(r.start, b.x, r.end);
         }
-        if !outside_ranges {
-            trace!("Beacon contained in row");
+        if inside_ranges {
             num_points -= 1;
         }
     }
@@ -241,6 +245,7 @@ fn main() {
 
     let (sensors, beacons) = load_sensors(fname);
     trace!("{:?}", sensors);
+    trace!("{:?}", beacons);
 
     let bounds = Bounds::from_points(&beacons);
     trace!("Min x: {}", bounds.min_x);
