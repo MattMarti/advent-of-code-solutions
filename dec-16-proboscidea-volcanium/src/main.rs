@@ -60,6 +60,7 @@ fn parse_node(s: &str) -> Option<(String, Node)> {
 #[derive(Debug)]
 struct World {
     pub time_left: usize,
+    pub total_pressure_released: usize,
     pub current_node: String,
     pub map: HashMap<String, Node>,
 }
@@ -68,6 +69,7 @@ impl World {
     pub fn new() -> Self {
         Self {
             time_left: 30,
+            total_pressure_released: 0,
             current_node: "AA".to_string(),
             map: HashMap::new(),
         }
@@ -77,24 +79,70 @@ impl World {
         self.map.insert(name.to_string(), node.clone());
     }
 
-    // FN: Get next best node to open
-    // From remaining time left, and time to get to other nodes, get total pressure released
-    // Move there
-
-    pub fn move_to_node(&mut self, target_name: &str) -> bool {
-        let mut path = self.dijkstra_to_node(target_name);
-        if self.time_left < path.len() {
+    pub fn decrement_time(&mut self, amount: usize) -> bool {
+        if amount > self.time_left {
             return false;
         }
-        self.current_node = target_name.to_string();
-        self.time_left -= path.len();
+        self.time_left -= amount;
+        for node in self.map.values() {
+            if node.is_open {
+                self.total_pressure_released += amount * node.rate;
+            }
+        }
+        debug!("Time left: {}. Pressure released: {}", self.time_left, self.total_pressure_released);
         true
     }
 
-    fn dijkstra_to_node(&self, target_name: &str) -> Vec<String> {
+    pub fn follow_path_to_node(&mut self, path: &[String]) -> bool {
+        if self.time_left < path.len() {
+            return false;
+        }
+        if path.len() < 2 {
+            return true;
+        }
+        // TODO Check that the start node is the current node
+        self.current_node = path.last().unwrap().clone();
+        debug!("Set current node to {}", self.current_node);
+        self.decrement_time(path.len() - 1);
+        true
+    }
+
+    pub fn open_current_node(&mut self) -> bool {
+        trace!("Opening {}", self.current_node);
+        self.map.get_mut(&self.current_node).unwrap().is_open = true;
+        self.decrement_time(1)
+    }
+
+    pub fn find_path_to_next_most_valuable_node(&self) -> Vec<String> {
+        let mut path_to_best_node = Vec::<String>::new();
+        let mut most_pressure_released = 0;
+        for key in self.map.keys() {
+            trace!("Checking {}", key);
+            let node = self.map.get(key).unwrap();
+            if node.rate == 0 || node.is_open {
+                trace!("- Not gonna open");
+                continue;
+            }
+            let path = self.dijkstra_path_to_node(key);
+            let movement_cost = path.len();
+            if self.time_left <= movement_cost {
+                trace!("- Costs {} but only have {} left", movement_cost, self.time_left);
+                continue;
+            }
+            let amount_released = (self.time_left - movement_cost) * node.rate;
+            trace!("- Could release {}", amount_released);
+            if amount_released > most_pressure_released {
+                path_to_best_node = path.clone();
+                most_pressure_released = amount_released;
+            }
+        }
+        debug!("Next movement: {:?}", path_to_best_node);
+        path_to_best_node
+    }
+
+    fn dijkstra_path_to_node(&self, target_name: &str) -> Vec<String> {
         let mut all_nodes = HashMap::<String, DijkstraNode>::new();
         for key in self.map.keys() {
-            println!("Adding {}", key);
             all_nodes.insert(key.clone(), DijkstraNode::new());
         }
         let mut nodes_to_check: Vec<String> = vec![self.current_node.clone()];
@@ -102,17 +150,14 @@ impl World {
             nodes_to_check.sort();
 
             let current_loc = nodes_to_check.pop().unwrap();
-            println!("Checking {}", current_loc);
             let current_node = all_nodes.get(&current_loc).unwrap().clone();
 
             for neighbor_name in self.map.get(&current_loc).unwrap().links.iter() {
-                println!("- Neighbor {}", neighbor_name);
                 let mut neighbor = all_nodes.get_mut(neighbor_name).unwrap();
                 const MOVEMENT_COST: usize = 1;
                 if neighbor.parent == None
                     || current_node.local_goal < neighbor.local_goal + MOVEMENT_COST
                 {
-                    println!("- - Setting parent: {}", current_loc);
                     neighbor.parent = Some(current_loc.clone());
                     neighbor.local_goal = current_node.local_goal + MOVEMENT_COST;
                     // No global goal calc b/c using Dijkstra's Algorithm
@@ -124,7 +169,7 @@ impl World {
             }
         }
         let mut path = Vec::<String>::new();
-        path.push(all_nodes.get(target_name).unwrap().clone().parent.unwrap());
+        path.push(target_name.to_string());
         while path.last().unwrap() != &self.current_node {
             let current = path.last().unwrap();
             match &all_nodes.get(current).unwrap().parent {
@@ -160,7 +205,7 @@ impl PartialOrd for DijkstraNode {
     }
 }
 
-impl PartialEq for AStarNode {
+impl PartialEq for DijkstraNode {
     fn eq(&self, other: &Self) -> bool {
         match self.partial_cmp(other) {
             Some(x) if x == Ordering::Equal => true,
@@ -206,16 +251,34 @@ fn setup_logger() {
 fn main() {
     setup_logger();
     let args: Vec<String> = env::args().skip(1).collect();
-    if args.len() < 3 || 5 < args.len() {
-        println!("Args: <fname> row <i64> bound <i64>");
+    if args.len() != 1 {
+        println!("Args: <fname>");
         return;
     }
 
     let fname = &args[0];
     info!("Filename: {}", fname);
 
-    let world = load_nodes(fname);
+    let mut world = load_nodes(fname).unwrap();
     trace!("Loaded {:?}", world);
+
+    let mut out_of_time = false;
+    while world.time_left > 0 {
+        let path = world.find_path_to_next_most_valuable_node();
+
+        // TODO How to exclude nodes
+        if world.follow_path_to_node(&path) {
+            world.open_current_node();
+        }
+        else {
+            // TODO Find a node that doesn't make you run out of time
+            break;
+        }
+        if out_of_time {
+            break;
+        }
+    }
+    info!("Part 1: Total pressure released: {}", world.total_pressure_released);
 }
 
 #[cfg(test)]
@@ -311,11 +374,18 @@ mod test {
             },
         );
 
+        let path = world.dijkstra_path_to_node("I");
+        assert_eq!(path.len(), 4);
+        assert_eq!(path[0], "A");
+        assert_eq!(path[1], "E");
+        assert_eq!(path[2], "F");
+        assert_eq!(path[3], "I");
+
         // Move from A to I
         let start_time = world.time_left;
         assert!(world.map.contains_key(&"I".to_string()));
         assert_eq!(world.current_node, "A".to_string());
-        world.move_to_node("I");
+        world.follow_path_to_node(&path);
 
         // Make sure time left decreased accordingly
         assert_eq!(world.current_node, "I");
