@@ -92,24 +92,29 @@ impl World {
     }
 
     fn dijkstra_to_node(&self, target_name: &str) -> Vec<String> {
-        let mut all_nodes = HashMap::<String, AStarNode>::new();
+        let mut all_nodes = HashMap::<String, DijkstraNode>::new();
         for key in self.map.keys() {
-            all_nodes.insert(key.clone(), AStarNode::new());
+            println!("Adding {}", key);
+            all_nodes.insert(key.clone(), DijkstraNode::new());
         }
         let mut nodes_to_check: Vec<String> = vec![self.current_node.clone()];
-        let mut current_loc = nodes_to_check.pop().unwrap();
         while !nodes_to_check.is_empty() {
             nodes_to_check.sort();
 
-            current_loc = nodes_to_check.pop().unwrap();
-            let local_goal = all_nodes.get(&current_loc).unwrap().local_goal;
+            let current_loc = nodes_to_check.pop().unwrap();
+            println!("Checking {}", current_loc);
+            let current_node = all_nodes.get(&current_loc).unwrap().clone();
 
             for neighbor_name in self.map.get(&current_loc).unwrap().links.iter() {
+                println!("- Neighbor {}", neighbor_name);
                 let mut neighbor = all_nodes.get_mut(neighbor_name).unwrap();
                 const MOVEMENT_COST: usize = 1;
-                if local_goal < neighbor.local_goal + MOVEMENT_COST {
+                if neighbor.parent == None
+                    || current_node.local_goal < neighbor.local_goal + MOVEMENT_COST
+                {
+                    println!("- - Setting parent: {}", current_loc);
                     neighbor.parent = Some(current_loc.clone());
-                    neighbor.local_goal = local_goal + MOVEMENT_COST;
+                    neighbor.local_goal = current_node.local_goal + MOVEMENT_COST;
                     // No global goal calc b/c using Dijkstra's Algorithm
                 }
                 if !neighbor.visited {
@@ -133,13 +138,13 @@ impl World {
 }
 
 #[derive(Clone)]
-struct AStarNode {
+struct DijkstraNode {
     pub local_goal: usize,
     pub visited: bool,
     pub parent: Option<String>,
 }
 
-impl AStarNode {
+impl DijkstraNode {
     pub fn new() -> Self {
         Self {
             local_goal: 0,
@@ -149,7 +154,7 @@ impl AStarNode {
     }
 }
 
-impl PartialOrd for AStarNode {
+impl PartialOrd for DijkstraNode {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.local_goal.partial_cmp(&other.local_goal)
     }
@@ -233,18 +238,83 @@ mod test {
         //
         let mut world = World::new();
         world.current_node = "A".to_string();
-        world.add("A", &Node{rate: 0, is_open: false, links: string_vec!["B", "E"]});
-        world.add("B", &Node{rate: 0, is_open: false, links: string_vec!["A", "C"]});
-        world.add("C", &Node{rate: 0, is_open: false, links: string_vec!["B", "D", "G"]});
-        world.add("D", &Node{rate: 0, is_open: false, links: string_vec!["C", "I"]});
-        world.add("E", &Node{rate: 0, is_open: false, links: string_vec!["A", "G", "F"]});
-        world.add("F", &Node{rate: 0, is_open: false, links: string_vec!["E", "I"]});
-        world.add("G", &Node{rate: 0, is_open: false, links: string_vec!["E", "C", "H"]});
-        world.add("H", &Node{rate: 0, is_open: false, links: string_vec!["G", "I"]});
-        world.add("I", &Node{rate: 0, is_open: false, links: string_vec!["D", "F", "H"]});
+        world.add(
+            "A",
+            &Node {
+                rate: 0,
+                is_open: false,
+                links: string_vec!["B", "E"],
+            },
+        );
+        world.add(
+            "B",
+            &Node {
+                rate: 0,
+                is_open: false,
+                links: string_vec!["A", "C"],
+            },
+        );
+        world.add(
+            "C",
+            &Node {
+                rate: 0,
+                is_open: false,
+                links: string_vec!["B", "D", "G"],
+            },
+        );
+        world.add(
+            "D",
+            &Node {
+                rate: 0,
+                is_open: false,
+                links: string_vec!["C", "I"],
+            },
+        );
+        world.add(
+            "E",
+            &Node {
+                rate: 0,
+                is_open: false,
+                links: string_vec!["A", "G", "F"],
+            },
+        );
+        world.add(
+            "F",
+            &Node {
+                rate: 0,
+                is_open: false,
+                links: string_vec!["E", "I"],
+            },
+        );
+        world.add(
+            "G",
+            &Node {
+                rate: 0,
+                is_open: false,
+                links: string_vec!["E", "C", "H"],
+            },
+        );
+        world.add(
+            "H",
+            &Node {
+                rate: 0,
+                is_open: false,
+                links: string_vec!["G", "I"],
+            },
+        );
+        world.add(
+            "I",
+            &Node {
+                rate: 0,
+                is_open: false,
+                links: string_vec!["D", "F", "H"],
+            },
+        );
 
         // Move from A to I
         let start_time = world.time_left;
+        assert!(world.map.contains_key(&"I".to_string()));
+        assert_eq!(world.current_node, "A".to_string());
         world.move_to_node("I");
 
         // Make sure time left decreased accordingly
