@@ -2,10 +2,10 @@ use lazy_static::lazy_static;
 use log::LevelFilter;
 use log::{debug, error, info, trace};
 use regex::Regex;
+use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
-use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 struct Node {
@@ -22,18 +22,32 @@ fn parse_node(s: &str) -> Option<(String, Node)> {
     lazy_static! {
         static ref NUMBER: Regex = Regex::new(r"\d+").unwrap();
     }
-    let rate = NUMBER.find(ssep[4]).unwrap().as_str().parse::<usize>().unwrap();
+    let rate = NUMBER
+        .find(ssep[4])
+        .unwrap()
+        .as_str()
+        .parse::<usize>()
+        .unwrap();
 
     lazy_static! {
         static ref NAME_LIST: Regex = Regex::new(r"([A-Z]{2}, )?[A-Z]{2}$").unwrap();
     }
-    let links = NAME_LIST.find(s).unwrap().as_str().split(", ").map(str::to_string).collect::<Vec<String>>();
+    let links = NAME_LIST
+        .find(s)
+        .unwrap()
+        .as_str()
+        .split(", ")
+        .map(str::to_string)
+        .collect::<Vec<String>>();
 
-    Some((name, Node {
-        rate,
-        is_open: false,
-        links,
-    }))
+    Some((
+        name,
+        Node {
+            rate,
+            is_open: false,
+            links,
+        },
+    ))
 }
 
 #[derive(Debug)]
@@ -46,7 +60,7 @@ impl World {
     pub fn new() -> Self {
         Self {
             time_left: 30,
-            map: HashMap::<>::new(),
+            map: HashMap::new(),
         }
     }
 
