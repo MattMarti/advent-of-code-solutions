@@ -95,9 +95,10 @@ impl World {
 
     pub fn follow_path_to_node(&mut self, path: &[String]) -> bool {
         if self.time_left < path.len() {
+            trace!("Not enugh time left: {} < {}", self.time_left, path.len());
             return false;
         }
-        if path.len() < 2 {
+        if path.len() == 0 {
             return true;
         }
         // TODO Check that the start node is the current node
@@ -109,8 +110,11 @@ impl World {
 
     pub fn open_current_node(&mut self) -> bool {
         trace!("Opening {}", self.current_node);
+        if !self.decrement_time(1) {
+            return false;
+        }
         self.map.get_mut(&self.current_node).unwrap().is_open = true;
-        self.decrement_time(1)
+        true
     }
 
     pub fn find_path_to_next_most_valuable_node(&self) -> Vec<String> {
