@@ -119,7 +119,7 @@ impl World {
     }
 
     pub fn open_current_node(&mut self) -> bool {
-        debug!("Opening {}", self.current_node);
+        debug!("Opening {} for rate {}", self.current_node, self.map.get(&self.current_node).unwrap().rate);
         if !self.decrement_time(1) {
             return false;
         }
@@ -305,7 +305,7 @@ fn main() {
             world.open_current_node();
         } else {
             // TODO Find a node that doesn't make you run out of time
-            break;
+            out_of_time = true;
         }
         if out_of_time {
             break;
