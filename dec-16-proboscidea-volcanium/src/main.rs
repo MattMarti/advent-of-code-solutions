@@ -75,8 +75,15 @@ impl World {
         }
     }
 
-    pub fn add(&mut self, name: &str, node: &Node) {
-        self.map.insert(name.to_string(), node.clone());
+    pub fn add_node(&mut self, name: &str, rate: usize, neighbors: &[String]) {
+        self.map.insert(
+            name.to_string(),
+            Node {
+                rate: rate,
+                is_open: false,
+                links: neighbors.to_vec(),
+            },
+        );
     }
 
     pub fn decrement_time(&mut self, amount: usize) -> bool {
@@ -89,7 +96,10 @@ impl World {
                 self.total_pressure_released += amount * node.rate;
             }
         }
-        debug!("Time left: {}. Pressure released: {}", self.time_left, self.total_pressure_released);
+        debug!(
+            "Time left: {}. Pressure released: {}",
+            self.time_left, self.total_pressure_released
+        );
         true
     }
 
@@ -136,7 +146,11 @@ impl World {
             }
             let movement_cost = path.len();
             if self.time_left <= movement_cost {
-                trace!("- Costs {} but only have {} left", movement_cost, self.time_left);
+                trace!(
+                    "- Costs {} but only have {} left",
+                    movement_cost,
+                    self.time_left
+                );
                 continue;
             }
             let amount_released = (self.time_left - movement_cost - 1) * node.rate;
@@ -249,7 +263,7 @@ fn load_nodes(fname: &str) -> Option<World> {
             continue;
         }
         match parse_node(&line) {
-            Some((name, node)) => world.add(name.as_str(), &node),
+            Some((name, node)) => world.add_node(name.as_str(), node.rate, &node.links),
             None => return None,
         };
     }
@@ -289,8 +303,7 @@ fn main() {
         // TODO How to exclude nodes
         if world.follow_path_to_node(&path) {
             world.open_current_node();
-        }
-        else {
+        } else {
             // TODO Find a node that doesn't make you run out of time
             break;
         }
@@ -298,7 +311,10 @@ fn main() {
             break;
         }
     }
-    info!("Part 1: Total pressure released: {}", world.total_pressure_released);
+    info!(
+        "Part 1: Total pressure released: {}",
+        world.total_pressure_released
+    );
 }
 
 #[cfg(test)]
@@ -321,78 +337,15 @@ mod test {
         //
         let mut world = World::new();
         world.current_node = "A".to_string();
-        world.add(
-            "A",
-            &Node {
-                rate: 0,
-                is_open: false,
-                links: string_vec!["B", "E"],
-            },
-        );
-        world.add(
-            "B",
-            &Node {
-                rate: 0,
-                is_open: false,
-                links: string_vec!["A", "C"],
-            },
-        );
-        world.add(
-            "C",
-            &Node {
-                rate: 0,
-                is_open: false,
-                links: string_vec!["B", "D", "G"],
-            },
-        );
-        world.add(
-            "D",
-            &Node {
-                rate: 0,
-                is_open: false,
-                links: string_vec!["C", "I"],
-            },
-        );
-        world.add(
-            "E",
-            &Node {
-                rate: 0,
-                is_open: false,
-                links: string_vec!["A", "G", "F"],
-            },
-        );
-        world.add(
-            "F",
-            &Node {
-                rate: 0,
-                is_open: false,
-                links: string_vec!["E", "I"],
-            },
-        );
-        world.add(
-            "G",
-            &Node {
-                rate: 0,
-                is_open: false,
-                links: string_vec!["E", "C", "H"],
-            },
-        );
-        world.add(
-            "H",
-            &Node {
-                rate: 0,
-                is_open: false,
-                links: string_vec!["G", "I"],
-            },
-        );
-        world.add(
-            "I",
-            &Node {
-                rate: 0,
-                is_open: false,
-                links: string_vec!["D", "F", "H"],
-            },
-        );
+        world.add_node("A", 0, &string_vec!["B", "E"]);
+        world.add_node("B", 0, &string_vec!["A", "C"]);
+        world.add_node("C", 0, &string_vec!["B", "D", "G"]);
+        world.add_node("D", 0, &string_vec!["C", "I"]);
+        world.add_node("E", 0, &string_vec!["A", "G", "F"]);
+        world.add_node("F", 0, &string_vec!["E", "I"]);
+        world.add_node("G", 0, &string_vec!["E", "C", "H"]);
+        world.add_node("H", 0, &string_vec!["G", "I"]);
+        world.add_node("I", 0, &string_vec!["D", "F", "H"]);
 
         let path = world.dijkstra_path_to_node("I").unwrap();
         assert_eq!(path.len(), 4);
@@ -422,30 +375,9 @@ mod test {
         //
         let mut world = World::new();
         world.current_node = "A".to_string();
-        world.add(
-            "A",
-            &Node {
-                rate: 0,
-                is_open: false,
-                links: string_vec!["B", "C"],
-            },
-        );
-        world.add(
-            "B",
-            &Node {
-                rate: 0,
-                is_open: false,
-                links: string_vec!["A", "C"],
-            },
-        );
-        world.add(
-            "C",
-            &Node {
-                rate: 0,
-                is_open: false,
-                links: string_vec!["A", "B"],
-            },
-        );
+        world.add_node("A", 0, &string_vec!["B", "C"]);
+        world.add_node("B", 0, &string_vec!["A", "C"]);
+        world.add_node("C", 0, &string_vec!["A", "B"]);
 
         let path = world.dijkstra_path_to_node("C").unwrap();
         assert_eq!(path.len(), 2);
@@ -471,38 +403,10 @@ mod test {
         //
         let mut world = World::new();
         world.current_node = "A".to_string();
-        world.add(
-            "A",
-            &Node {
-                rate: 0,
-                is_open: false,
-                links: string_vec!["B"],
-            },
-        );
-        world.add(
-            "B",
-            &Node {
-                rate: 0,
-                is_open: false,
-                links: string_vec!["A"],
-            },
-        );
-        world.add(
-            "C",
-            &Node {
-                rate: 0,
-                is_open: false,
-                links: string_vec!["D"],
-            },
-        );
-        world.add(
-            "D",
-            &Node {
-                rate: 0,
-                is_open: false,
-                links: string_vec!["C"],
-            },
-        );
+        world.add_node("A", 0, &string_vec!["B"]);
+        world.add_node("B", 0, &string_vec!["A"]);
+        world.add_node("C", 0, &string_vec!["D"]);
+        world.add_node("D", 0, &string_vec!["C"]);
 
         let path = world.dijkstra_path_to_node("C");
         assert_eq!(path, None);
