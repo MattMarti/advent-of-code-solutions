@@ -37,7 +37,7 @@ fn parse_node(s: &str) -> Option<(String, Node)> {
         .unwrap();
 
     lazy_static! {
-        static ref NAME_LIST: Regex = Regex::new(r"([A-Z]{2}, )?[A-Z]{2}$").unwrap();
+        static ref NAME_LIST: Regex = Regex::new(r"([A-Z]{2}, )*[A-Z]{2}$").unwrap();
     }
     let links = NAME_LIST
         .find(s)
@@ -326,6 +326,19 @@ mod test {
     }
 
     #[test]
+    fn test_parse_node() {
+        let line = "Valve AA has flow rate=10; tunnels lead to valves DD, II, BB";
+        let (name, node) = parse_node(line).unwrap();
+        assert_eq!(name, "AA");
+        assert_eq!(node.rate, 10);
+        assert_eq!(node.is_open, false);
+        assert_eq!(node.links.len(), 3);
+        assert_eq!(node.links[0], "DD");
+        assert_eq!(node.links[1], "II");
+        assert_eq!(node.links[2], "BB");
+    }
+
+    #[test]
     fn test_dijkstra_movement() {
         // Set up a graph with two paths
         //
@@ -410,5 +423,46 @@ mod test {
 
         let path = world.dijkstra_path_to_node("C");
         assert_eq!(path, None);
+    }
+
+    #[test]
+    fn test_dijkstra_dead_ends() {
+        // Set up a graph with two paths
+        //
+        //   B - C - D  - J
+        //  /    /     \
+        // A    G - H   I
+        //  \  /       /
+        //    E ---- F
+        //
+        let mut world = World::new();
+        world.current_node = "A".to_string();
+        world.add_node("A", 0, &string_vec!["B", "E"]);
+        world.add_node("B", 0, &string_vec!["A", "C"]);
+        world.add_node("C", 0, &string_vec!["B", "D", "G"]);
+        world.add_node("D", 0, &string_vec!["C", "I", "J"]);
+        world.add_node("E", 0, &string_vec!["A", "G", "F"]);
+        world.add_node("F", 0, &string_vec!["E", "I"]);
+        world.add_node("G", 0, &string_vec!["E", "C", "H"]);
+        world.add_node("H", 0, &string_vec!["G"]);
+        world.add_node("I", 0, &string_vec!["D", "F"]);
+        world.add_node("J", 0, &string_vec!["D"]);
+
+        let path = world.dijkstra_path_to_node("I").unwrap();
+        assert_eq!(path.len(), 4);
+        assert_eq!(path[0], "A");
+        assert_eq!(path[1], "E");
+        assert_eq!(path[2], "F");
+        assert_eq!(path[3], "I");
+
+        // Move from A to I
+        let start_time = world.time_left;
+        assert!(world.map.contains_key(&"I".to_string()));
+        assert_eq!(world.current_node, "A".to_string());
+        world.follow_path_to_node(&path);
+
+        // Make sure time left decreased accordingly
+        assert_eq!(world.current_node, "I");
+        assert_eq!(world.time_left, start_time - 3);
     }
 }
