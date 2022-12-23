@@ -103,17 +103,17 @@ impl World {
         }
         // TODO Check that the start node is the current node
         self.current_node = path.last().unwrap().clone();
-        debug!("Set current node to {}", self.current_node);
         self.decrement_time(path.len() - 1);
+        debug!("Set current node to {}", self.current_node);
         true
     }
 
     pub fn open_current_node(&mut self) -> bool {
-        trace!("Opening {}", self.current_node);
+        debug!("Opening {}", self.current_node);
         if !self.decrement_time(1) {
             return false;
         }
-        self.map.get_mut(&self.current_node).unwrap().is_open = true;
+        self.map.get_mut(&self.current_node).unwrap().open();
         true
     }
 
@@ -121,19 +121,25 @@ impl World {
         let mut path_to_best_node = Vec::<String>::new();
         let mut most_pressure_released = 0;
         for key in self.map.keys() {
-            trace!("Checking {}", key);
             let node = self.map.get(key).unwrap();
             if node.rate == 0 || node.is_open {
-                trace!("- Not gonna open");
                 continue;
             }
-            let path = self.dijkstra_path_to_node(key);
+            trace!("Checking {}", key);
+            let path = match self.dijkstra_path_to_node(key) {
+                Some(p) => p,
+                None => continue,
+            };
+            if path.len() == 0 {
+                error!("Encountered no path!");
+                continue;
+            }
             let movement_cost = path.len();
             if self.time_left <= movement_cost {
                 trace!("- Costs {} but only have {} left", movement_cost, self.time_left);
                 continue;
             }
-            let amount_released = (self.time_left - movement_cost) * node.rate;
+            let amount_released = (self.time_left - movement_cost - 1) * node.rate;
             trace!("- Could release {}", amount_released);
             if amount_released > most_pressure_released {
                 path_to_best_node = path.clone();
@@ -144,7 +150,7 @@ impl World {
         path_to_best_node
     }
 
-    fn dijkstra_path_to_node(&self, target_name: &str) -> Vec<String> {
+    fn dijkstra_path_to_node(&self, target_name: &str) -> Option<Vec<String>> {
         let mut all_nodes = HashMap::<String, DijkstraNode>::new();
         for key in self.map.keys() {
             all_nodes.insert(key.clone(), DijkstraNode::new());
@@ -158,6 +164,8 @@ impl World {
 
             for neighbor_name in self.map.get(&current_loc).unwrap().links.iter() {
                 let mut neighbor = all_nodes.get_mut(neighbor_name).unwrap();
+
+                // Check heuristic to update parent
                 const MOVEMENT_COST: usize = 1;
                 if neighbor.parent == None
                     || current_node.local_goal < neighbor.local_goal + MOVEMENT_COST
@@ -166,23 +174,31 @@ impl World {
                     neighbor.local_goal = current_node.local_goal + MOVEMENT_COST;
                     // No global goal calc b/c using Dijkstra's Algorithm
                 }
+
+                // Add to list if not discovered
                 if !neighbor.visited {
                     neighbor.visited = true;
                     nodes_to_check.push(neighbor_name.clone());
                 }
             }
         }
-        let mut path = Vec::<String>::new();
-        path.push(target_name.to_string());
+        if all_nodes.get(target_name).unwrap().parent == None {
+            trace!("No path found");
+            return None;
+        }
+        let mut path: Vec<String> = vec![target_name.to_string()];
         while path.last().unwrap() != &self.current_node {
             let current = path.last().unwrap();
+            trace!("- parent: {:?}", all_nodes.get(current).unwrap().parent);
             match &all_nodes.get(current).unwrap().parent {
                 Some(parent) => path.push(parent.clone()),
                 None => break,
             }
         }
         path.reverse();
-        path
+        trace!("Current node: {:?}", self.current_node);
+        trace!("Create path {:?}", path);
+        Some(path)
     }
 }
 
@@ -378,7 +394,7 @@ mod test {
             },
         );
 
-        let path = world.dijkstra_path_to_node("I");
+        let path = world.dijkstra_path_to_node("I").unwrap();
         assert_eq!(path.len(), 4);
         assert_eq!(path[0], "A");
         assert_eq!(path[1], "E");
@@ -394,5 +410,101 @@ mod test {
         // Make sure time left decreased accordingly
         assert_eq!(world.current_node, "I");
         assert_eq!(world.time_left, start_time - 3);
+    }
+
+    #[test]
+    fn test_dijkstra_movement_only_one() {
+        // Set up a graph with two paths
+        //
+        //    B
+        //  /   \
+        // A  -  C
+        //
+        let mut world = World::new();
+        world.current_node = "A".to_string();
+        world.add(
+            "A",
+            &Node {
+                rate: 0,
+                is_open: false,
+                links: string_vec!["B", "C"],
+            },
+        );
+        world.add(
+            "B",
+            &Node {
+                rate: 0,
+                is_open: false,
+                links: string_vec!["A", "C"],
+            },
+        );
+        world.add(
+            "C",
+            &Node {
+                rate: 0,
+                is_open: false,
+                links: string_vec!["A", "B"],
+            },
+        );
+
+        let path = world.dijkstra_path_to_node("C").unwrap();
+        assert_eq!(path.len(), 2);
+        assert_eq!(path[0], "A");
+        assert_eq!(path[1], "C");
+
+        // Move from A to I
+        let start_time = world.time_left;
+        world.follow_path_to_node(&path);
+
+        // Make sure time left decreased accordingly
+        assert_eq!(world.current_node, "C");
+        assert_eq!(world.time_left, start_time - 1);
+    }
+
+    #[test]
+    fn test_dijkstra_no_path() {
+        // Set up a graph with two paths
+        //
+        //    B    D
+        //  /     /
+        // A     C
+        //
+        let mut world = World::new();
+        world.current_node = "A".to_string();
+        world.add(
+            "A",
+            &Node {
+                rate: 0,
+                is_open: false,
+                links: string_vec!["B"],
+            },
+        );
+        world.add(
+            "B",
+            &Node {
+                rate: 0,
+                is_open: false,
+                links: string_vec!["A"],
+            },
+        );
+        world.add(
+            "C",
+            &Node {
+                rate: 0,
+                is_open: false,
+                links: string_vec!["D"],
+            },
+        );
+        world.add(
+            "D",
+            &Node {
+                rate: 0,
+                is_open: false,
+                links: string_vec!["C"],
+            },
+        );
+
+        let path = world.dijkstra_path_to_node("C");
+        assert_eq!(path, None);
     }
 }
