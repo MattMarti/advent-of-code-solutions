@@ -19,19 +19,19 @@ fn get_file_contents(path: &str) -> io::Result<Vec<i32>> {
     Ok(values)
 }
 
-fn find_first_repeated_freq(values: &[i32], max_iter: u64) -> Result<i32, ()> {
+fn find_first_repeated_freq(values: &[i32], max_iter: u64) -> Option<i32> {
     let mut running_freq: i32 = 0;
     let mut previous_freq_values = HashSet::from([running_freq]);
     for _ in 0..max_iter {
         for v in values {
             running_freq += v;
             if previous_freq_values.contains(&running_freq) {
-                return Ok(running_freq);
+                return Some(running_freq);
             }
             previous_freq_values.insert(running_freq);
         }
     }
-    Err(())
+    None
 }
 
 pub fn run(args: &[String]) {
@@ -45,8 +45,8 @@ pub fn run(args: &[String]) {
     };
 
     match find_first_repeated_freq(&values, max_iter) {
-        Ok(x) => println!("First repeated value is: {}", x),
-        Err(_) => println!("No repeated frequency values!"),
+        Some(x) => println!("First repeated value is: {}", x),
+        None => println!("No repeated frequency values!"),
     }
 }
 
