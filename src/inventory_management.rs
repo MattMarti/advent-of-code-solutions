@@ -58,7 +58,7 @@ fn get_same_letters(a: &str, b: &str) -> String {
 
 fn find_similar_ids(args: &[String]) -> Option<String> {
     for i in 0..args.len() {
-        for j in i..args.len() {
+        for j in i + 1..args.len() {
             let same_chars = get_same_letters(&args[i], &args[j]);
             if same_chars.len() + 1 == args[i].len() {
                 return Some(same_chars);
