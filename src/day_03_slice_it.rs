@@ -3,8 +3,9 @@ use regex::Regex;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 
+const NUM_SQAURES: usize = 1000;
+
 struct Claim {
-    id: usize,
     x: usize,
     y: usize,
     width: usize,
@@ -20,7 +21,6 @@ impl Claim {
             .unwrap();
         };
         RE.captures_iter(s).next().map(|caps| Self {
-            id: caps["id"].parse::<usize>().unwrap(),
             x: caps["x"].parse::<usize>().unwrap(),
             y: caps["y"].parse::<usize>().unwrap(),
             width: caps["width"].parse::<usize>().unwrap(),
@@ -37,15 +37,39 @@ fn load_claims(path: &str) -> io::Result<Vec<Claim>> {
     for line_input in reader.lines() {
         let line = line_input?;
         if line.is_empty() {
-            break;
+            continue;
         }
         ids.push(Claim::new(&line).unwrap());
     }
     Ok(ids)
 }
 
+fn get_num_overlapped(claims: &[Claim]) -> usize {
+    let mut tiles = Vec::<Vec::<usize>>::new();
+    for _ in 0..NUM_SQAURES {
+        tiles.push(vec![0; NUM_SQAURES]);
+    }
+    let mut num_overlaps = 0;
+    for c in claims {
+        for i in c.x..c.x + c.width {
+            for j in c.y..c.y + c.height {
+                tiles[i][j] += 1;
+                if tiles[i][j] == 2 {
+                    num_overlaps += 1;
+                }
+            }
+        }
+    }
+    num_overlaps
+}
+
 pub fn run(args: &[String]) {
     let claims = load_claims(&args[0]).unwrap();
+    println!("Found {} claims", claims.len());
+
+
+    let num_overlaps = get_num_overlapped(&claims);
+    println!("Number of overlaps: {}", num_overlaps);
 }
 
 #[cfg(test)]
