@@ -1,2 +1,3 @@
-pub mod chronal_calibration;
-pub mod inventory_management;
+pub mod day_01_chronal_calibration;
+pub mod day_02_inventory_management;
+pub mod day_03_slice_it;
