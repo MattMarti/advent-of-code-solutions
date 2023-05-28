@@ -13,6 +13,8 @@ fn main() {
         "inventory_management" => ac::day_02_inventory_management::run(func_args),
         "day03" => ac::day_03_slice_it::run(func_args),
         "slice_it" => ac::day_03_slice_it::run(func_args),
+        "day04" => ac::day_04_repose_record::run(func_args),
+        "repose_record" => ac::day_04_repose_record::run(func_args),
         _ => println!("Unrecognized command: {}", cmd),
     }
 }
