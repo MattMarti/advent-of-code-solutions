@@ -1,5 +1,6 @@
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 
@@ -20,15 +21,24 @@ impl Timestamp {
             .unwrap();
         };
         RE.captures_iter(s).next().map(|caps| Self {
-            year: caps["year"].parse::<usize>().unwrap(),
-            month: caps["month"].parse::<usize>().unwrap(),
-            day: caps["day"].parse::<usize>().unwrap(),
-            hour: caps["hour"].parse::<usize>().unwrap(),
-            minute: caps["minute"].parse::<usize>().unwrap(),
+            year: caps["year"].parse().unwrap(),
+            month: caps["month"].parse().unwrap(),
+            day: caps["day"].parse().unwrap(),
+            hour: caps["hour"].parse().unwrap(),
+            minute: caps["minute"].parse().unwrap(),
         })
+    }
+
+    pub fn diff_minutes(&self, other: &Timestamp) -> usize {
+        let diff_year = self.year - other.year;
+        let diff_month = self.month - other.month + 12 * diff_year;
+        let diff_day = self.day - other.day + 31 * diff_month; // This will turn into spaghetti
+        let diff_hour = self.hour - other.hour + 24 * diff_day;
+        self.minute - other.minute + 60 * diff_hour
     }
 }
 
+#[derive(PartialEq)]
 enum GuardAction {
     BeginShift,
     FallAsleep,
@@ -107,10 +117,66 @@ fn load_log_entries(path: &str) -> io::Result<Vec<LogEntry>> {
     Ok(make_log_entries(lines))
 }
 
+fn get_shift_range(log_entries: &[LogEntry]) -> usize {
+    let mut j = 1;
+    for entry in &log_entries[1..] {
+        if entry.action == GuardAction::BeginShift {
+            break;
+        }
+        j += 1;
+    }
+    j
+}
+
+// Assumes all guard ids are the same
+fn count_sleep(log_entries: &[LogEntry]) -> usize {
+    let mut total_time = 0;
+    let mut last_asleep_time: &Timestamp = &log_entries[0].timestamp;
+    for entry in &log_entries[1..] {
+        if entry.action == GuardAction::FallAsleep {
+            last_asleep_time = &entry.timestamp;
+        } else if entry.action == GuardAction::WakeUp {
+            total_time += entry.timestamp.diff_minutes(last_asleep_time);
+        }
+    }
+    total_time
+}
+
+fn count_total_minutes_slept(log_entries: &[LogEntry]) -> HashMap<usize, usize> {
+    let mut sleep_count = HashMap::<usize, usize>::new();
+    let mut i = 0;
+    while i < log_entries.len() {
+        let entry = &log_entries[i];
+        if !sleep_count.contains_key(&entry.guard_id) {
+            let id: usize = entry.guard_id;
+            sleep_count.insert(id, 0);
+        }
+        let j = i + get_shift_range(&log_entries[i..]);
+        *sleep_count.get_mut(&entry.guard_id).unwrap() += count_sleep(&log_entries[i..j]);
+        i = j;
+    }
+    sleep_count
+}
+
+fn find_most_minutes_slept(log_entries: &[LogEntry]) -> (usize, usize) {
+    let sleep_count = count_total_minutes_slept(log_entries);
+    let mut most_sleep = 0;
+    let mut sleepiest_guard = 0;
+    for (guard_id, count) in sleep_count {
+        if count > most_sleep {
+            sleepiest_guard = guard_id;
+            most_sleep = count;
+        }
+    }
+    (sleepiest_guard, most_sleep)
+}
+
 pub fn run(args: &[String]) {
     let log_entries = load_log_entries(&args[0]).unwrap();
-
     println!("Loaded {} log entries", log_entries.len());
+
+    let (guard, amount) = find_most_minutes_slept(&log_entries);
+    println!("Guard {} slept the most at {} minutes.", guard, amount);
 }
 
 #[cfg(test)]
