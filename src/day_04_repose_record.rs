@@ -3,13 +3,11 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
-use std::iter::Zip;
-use std::slice::Iter;
 
 struct Timestamp {
-    year: usize,
-    month: usize,
-    day: usize,
+    //year: usize,
+    //month: usize,
+    //day: usize,
     hour: usize,
     minute: usize,
 }
@@ -23,20 +21,12 @@ impl Timestamp {
             .unwrap();
         };
         RE.captures_iter(s).next().map(|caps| Self {
-            year: caps["year"].parse().unwrap(),
-            month: caps["month"].parse().unwrap(),
-            day: caps["day"].parse().unwrap(),
+            //year: caps["year"].parse().unwrap(),
+            //month: caps["month"].parse().unwrap(),
+            //day: caps["day"].parse().unwrap(),
             hour: caps["hour"].parse().unwrap(),
             minute: caps["minute"].parse().unwrap(),
         })
-    }
-
-    pub fn diff_minutes(&self, other: &Timestamp) -> usize {
-        let diff_year = self.year - other.year;
-        let diff_month = self.month - other.month + 12 * diff_year;
-        let diff_day = self.day - other.day + 31 * diff_month; // This will turn into spaghetti
-        let diff_hour = self.hour - other.hour + 24 * diff_day;
-        self.minute - other.minute + 60 * diff_hour
     }
 }
 
@@ -130,52 +120,10 @@ fn get_shift_range(log_entries: &[LogEntry]) -> usize {
     j
 }
 
-// Assumes all guard ids are the same
-fn count_sleep(log_entries: &[LogEntry]) -> usize {
-    let mut total_time = 0;
-    let mut last_asleep_time: &Timestamp = &log_entries[0].timestamp;
-    for entry in &log_entries[1..] {
-        if entry.action == GuardAction::FallAsleep {
-            last_asleep_time = &entry.timestamp;
-        } else if entry.action == GuardAction::WakeUp {
-            total_time += entry.timestamp.diff_minutes(last_asleep_time);
-        }
-    }
-    total_time
-}
-
-fn count_total_minutes_slept(log_entries: &[LogEntry]) -> HashMap<usize, usize> {
-    let mut sleep_count = HashMap::<usize, usize>::new();
-    let mut i = 0;
-    while i < log_entries.len() {
-        let entry = &log_entries[i];
-        if !sleep_count.contains_key(&entry.guard_id) {
-            let id: usize = entry.guard_id;
-            sleep_count.insert(id, 0);
-        }
-        let j = i + get_shift_range(&log_entries[i..]);
-        *sleep_count.get_mut(&entry.guard_id).unwrap() += count_sleep(&log_entries[i..j]);
-        i = j;
-    }
-    sleep_count
-}
-
-fn find_guard_with_most_sleep(log_entries: &[LogEntry]) -> (usize, usize) {
-    let sleep_count = count_total_minutes_slept(log_entries);
-    let mut most_sleep = 0;
-    let mut sleepiest_guard = 0;
-    for (guard_id, count) in sleep_count {
-        if count > most_sleep {
-            sleepiest_guard = guard_id;
-            most_sleep = count;
-        }
-    }
-    (sleepiest_guard, most_sleep)
-}
-
 struct SleepGrid {
     pub guard_ids: Vec<usize>,
     pub asleep: Vec<Vec<bool>>,
+    sleep_counts: HashMap<usize, Vec<usize>>,
 }
 
 impl SleepGrid {
@@ -183,6 +131,7 @@ impl SleepGrid {
         let mut s = Self {
             guard_ids: Vec::<usize>::default(),
             asleep: Vec::<Vec<bool>>::default(),
+            sleep_counts: HashMap::<usize, Vec::<usize>>::default(),
         };
         let mut i = 0;
         while i < log_entries.len() {
@@ -190,19 +139,23 @@ impl SleepGrid {
             s.guard_ids.push(entry.guard_id);
 
             let j = i + get_shift_range(&log_entries[i..]);
-            s.asleep
-                .push(SleepGrid::get_sleep_flags(&log_entries[i..j]));
+            let flags = SleepGrid::calc_sleep_flags(&log_entries[i..j]);
 
+            if !s.sleep_counts.contains_key(&entry.guard_id) {
+                s.sleep_counts.insert(entry.guard_id, vec![0; 120]);
+            }
+            let counts = s.sleep_counts.get_mut(&entry.guard_id).unwrap();
+            for (flag, count) in flags.iter().zip(counts.iter_mut()) {
+                *count += *flag as usize;
+            }
+
+            s.asleep.push(flags);
             i = j;
         }
         s
     }
 
-    pub fn iter(&self) -> Zip<Iter<'_, usize>, Iter<'_, Vec<bool>>> {
-        self.guard_ids.iter().zip(self.asleep.iter())
-    }
-
-    fn get_sleep_flags(log_entries: &[LogEntry]) -> Vec<bool> {
+    fn calc_sleep_flags(log_entries: &[LogEntry]) -> Vec<bool> {
         let mut sleep_flags: Vec<bool> = vec![false; 120];
         let mut last_asleep_time: &Timestamp = &log_entries[0].timestamp;
         for entry in &log_entries[1..] {
@@ -242,32 +195,34 @@ impl SleepGrid {
             println!();
         }
     }
-}
 
-fn find_most_slept_on_minute(grid: &SleepGrid, guard_id: usize) -> (usize, usize) {
-    let mut min_counts: Vec<usize> = vec![0; 120];
-    for (id, sleep_status) in grid.iter() {
-        if *id != guard_id {
-            continue;
-        }
-        for (is_asleep, count) in sleep_status.iter().zip(min_counts.iter_mut()) {
-            if *is_asleep {
-                *count += 1;
+    fn get_sleepiest_guard(&self) -> (usize, usize) {
+        let mut guard_id = 0;
+        let mut most_sleep = 0;
+        for (id, counts) in self.sleep_counts.iter() {
+            let total = counts.iter().sum();
+            if total > most_sleep {
+                most_sleep = total;
+                guard_id = *id;
             }
         }
+        (guard_id, most_sleep)
     }
-    let mut most_min_count = 0;
-    let mut most_min_index = 0;
-    for (i, &count) in min_counts.iter().enumerate() {
-        if count > most_min_count {
-            most_min_count = count;
-            most_min_index = i;
+
+    fn get_most_slept_on_minute(&self, guard_id: usize) -> (usize, usize) {
+        let mut most_min_count = 0;
+        let mut most_min_index = 0;
+        for (i, &count) in self.sleep_counts.get(&guard_id).unwrap().iter().enumerate() {
+            if count > most_min_count {
+                most_min_count = count;
+                most_min_index = i;
+            }
         }
+        if most_min_index < 60 {
+            panic!("Most sleep found before midnight! Problem does not support this");
+        }
+        (most_min_index - 60, most_min_count)
     }
-    if most_min_index < 60 {
-        panic!("Most sleep found before midnight! Problem does not support this");
-    }
-    (most_min_index - 60, most_min_count)
 }
 
 pub fn run(args: &[String]) {
@@ -277,10 +232,10 @@ pub fn run(args: &[String]) {
     let sleep_grid = SleepGrid::new(&log_entries);
     sleep_grid.print();
 
-    let (guard, amount) = find_guard_with_most_sleep(&log_entries);
+    let (guard, amount) = sleep_grid.get_sleepiest_guard();
     println!("Guard {} slept the most at {} minutes.", guard, amount);
 
-    let (most_slept_time, amount) = find_most_slept_on_minute(&sleep_grid, guard);
+    let (most_slept_time, amount) = sleep_grid.get_most_slept_on_minute(guard);
     println!(
         "Most slept on minute was {} at {} times.",
         most_slept_time, amount
