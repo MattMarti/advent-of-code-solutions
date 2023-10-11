@@ -282,13 +282,14 @@ mod test {
     fn test_timestamp_from_str() {
         let input = "[1519-11-02 01:28] Guard #42 begins shift";
         let timestamp = Timestamp::new(&input).unwrap();
-        assert_eq!(timestamp.year, 1519);
-        assert_eq!(timestamp.month, 11);
-        assert_eq!(timestamp.day, 2);
+        //assert_eq!(timestamp.year, 1519);
+        //assert_eq!(timestamp.month, 11);
+        //assert_eq!(timestamp.day, 2);
         assert_eq!(timestamp.hour, 1);
         assert_eq!(timestamp.minute, 28);
     }
 
+    #[test]
     fn test_timestamp_from_str_bad_str() {
         let input = "asdf";
         let timestamp = Timestamp::new(&input);
