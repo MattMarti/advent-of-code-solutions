@@ -3,6 +3,8 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
+use std::iter::Zip;
+use std::slice::Iter;
 
 struct Timestamp {
     year: usize,
@@ -196,6 +198,10 @@ impl SleepGrid {
         s
     }
 
+    pub fn iter(&self) -> Zip<Iter<'_, usize>, Iter<'_, Vec<bool>>> {
+        self.guard_ids.iter().zip(self.asleep.iter())
+    }
+
     fn get_sleep_flags(log_entries: &[LogEntry]) -> Vec<bool> {
         let mut sleep_flags: Vec<bool> = vec![false; 120];
         let mut last_asleep_time: &Timestamp = &log_entries[0].timestamp;
@@ -205,8 +211,8 @@ impl SleepGrid {
             } else if entry.action == GuardAction::WakeUp {
                 let start = SleepGrid::timestamp_to_sleep_index(last_asleep_time);
                 let end = SleepGrid::timestamp_to_sleep_index(&entry.timestamp);
-                for i in start..end {
-                    sleep_flags[i] = true;
+                for f in sleep_flags.iter_mut().take(end).skip(start) {
+                    *f = true;
                 }
             }
         }
@@ -240,13 +246,13 @@ impl SleepGrid {
 
 fn find_most_slept_on_minute(grid: &SleepGrid, guard_id: usize) -> (usize, usize) {
     let mut min_counts: Vec<usize> = vec![0; 120];
-    for i in 0..grid.guard_ids.len() {
-        if grid.guard_ids[i] != guard_id {
+    for (id, sleep_status) in grid.iter() {
+        if *id != guard_id {
             continue;
         }
-        for j in 0..grid.asleep[i].len() {
-            if grid.asleep[i][j] {
-                min_counts[j] += 1;
+        for (is_asleep, count) in sleep_status.iter().zip(min_counts.iter_mut()) {
+            if *is_asleep {
+                *count += 1;
             }
         }
     }
