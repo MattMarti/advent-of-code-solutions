@@ -131,7 +131,7 @@ impl SleepGrid {
         let mut s = Self {
             guard_ids: Vec::<usize>::default(),
             asleep: Vec::<Vec<bool>>::default(),
-            sleep_counts: HashMap::<usize, Vec::<usize>>::default(),
+            sleep_counts: HashMap::<usize, Vec<usize>>::default(),
         };
         let mut i = 0;
         while i < log_entries.len() {
@@ -141,10 +141,10 @@ impl SleepGrid {
             let j = i + get_shift_range(&log_entries[i..]);
             let flags = SleepGrid::calc_sleep_flags(&log_entries[i..j]);
 
-            if !s.sleep_counts.contains_key(&entry.guard_id) {
-                s.sleep_counts.insert(entry.guard_id, vec![0; 120]);
-            }
-            let counts = s.sleep_counts.get_mut(&entry.guard_id).unwrap();
+            let counts = s
+                .sleep_counts
+                .entry(entry.guard_id)
+                .or_insert_with(|| vec![0; 120]);
             for (flag, count) in flags.iter().zip(counts.iter_mut()) {
                 *count += *flag as usize;
             }
@@ -223,6 +223,28 @@ impl SleepGrid {
         }
         (most_min_index - 60, most_min_count)
     }
+
+    fn get_most_frequent_slept_minute(&self) -> (usize, usize) {
+        let mut max_frequency = 0;
+        let mut most_frequent_minute = 0;
+        let mut guard = 0;
+        for (id, counts) in self.sleep_counts.iter() {
+            let mut max_count = 0;
+            let mut index_of_max = 0;
+            for (i, c) in counts.iter().enumerate() {
+                if *c > max_count {
+                    max_count = *c;
+                    index_of_max = i;
+                }
+            }
+            if max_count > max_frequency {
+                max_frequency = max_count;
+                most_frequent_minute = index_of_max;
+                guard = *id;
+            }
+        }
+        (guard, most_frequent_minute - 60)
+    }
 }
 
 pub fn run(args: &[String]) {
@@ -240,8 +262,16 @@ pub fn run(args: &[String]) {
         "Most slept on minute was {} at {} times.",
         most_slept_time, amount
     );
-
     println!("Part 1 hash: {}", guard * most_slept_time);
+
+    let (most_frequent_guard, most_frequent_minute) = sleep_grid.get_most_frequent_slept_minute();
+    println!("Part 2");
+    println!("Most frequent guard: {}", most_frequent_guard);
+    println!("Most frequent minute: {}", most_frequent_minute);
+    println!(
+        "Part 2 hash: {}",
+        most_frequent_guard * most_frequent_minute
+    );
 }
 
 #[cfg(test)]
