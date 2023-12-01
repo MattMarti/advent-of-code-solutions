@@ -1,7 +1,6 @@
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 
-
 fn get_file_contents(path: &str) -> io::Result<Vec<String>> {
     let mut values = Vec::<String>::new();
     println!("Opening {}", path);
@@ -10,8 +9,7 @@ fn get_file_contents(path: &str) -> io::Result<Vec<String>> {
     for line_input in reader.lines() {
         if let Ok(line) = line_input {
             values.push(line);
-        }
-        else {
+        } else {
             break;
         }
     }
