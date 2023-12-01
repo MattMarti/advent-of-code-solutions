@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::env;
 
-mod dec_01_what;
+mod dec_01_trebuchet;
 
 struct ProgramOption {
     pub names: HashSet<String>,
@@ -53,7 +53,7 @@ fn main() {
         },
         ProgramOption {
             names: cmdset!["day-01", "1", "what"],
-            func: dec_01_what::run,
+            func: dec_01_trebuchet::run,
         },
     ];
     let args: Vec<String> = env::args().skip(1).collect();
