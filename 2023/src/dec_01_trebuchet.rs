@@ -72,7 +72,7 @@ fn get_spelled_out_digits(lines: &[String]) -> Vec<i64> {
             for (i, re) in num_re.iter().enumerate() {
                 if re.find(value).is_some() {
                     println!("- Detect {value}: [{start_idx}, {}]", m.end());
-                    if !digits.is_empty() && start_idx <= last_end_idx {
+                    if !digits.is_empty() && start_idx < last_end_idx {
                         let current_digit = digits.last_mut().unwrap();
                         *current_digit *= 10;
                         *current_digit += i as i32;
