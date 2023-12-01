@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 use std::env;
 
+mod dec_01_what;
+
 struct ProgramOption {
     pub names: HashSet<String>,
     pub func: fn(&[String]) -> (),
@@ -44,10 +46,16 @@ macro_rules! cmdset {
 }
 
 fn main() {
-    let options = vec![ProgramOption {
-        names: cmdset!["foo"],
-        func: foo,
-    }];
+    let options = vec![
+        ProgramOption {
+            names: cmdset!["foo"],
+            func: foo,
+        },
+        ProgramOption {
+            names: cmdset!["day-01", "1", "what"],
+            func: dec_01_what::run,
+        },
+    ];
     let args: Vec<String> = env::args().skip(1).collect();
     if args.len() < 2 {
         print_help(&options);
