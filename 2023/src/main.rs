@@ -4,6 +4,7 @@ use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 
 mod dec_01_trebuchet;
+mod dec_02_cube_conundrum;
 
 pub fn load_file_lines(path: &str) -> io::Result<Vec<String>> {
     let mut lines = Vec::<_>::new();
@@ -71,9 +72,14 @@ fn main() {
             hint: String::from("[file]"),
         },
         ProgramOption {
-            names: cmdset!["day-01", "1", "what"],
+            names: cmdset!["day-01", "1", "trebuchet"],
             func: dec_01_trebuchet::run,
             hint: String::from("[file] [part_1, part_2]"),
+        },
+        ProgramOption {
+            names: cmdset!["day-02", "2", "cube-conundrum"],
+            func: dec_02_cube_conundrum::run,
+            hint: String::from("[file] [debug]"),
         },
     ];
     let args: Vec<String> = env::args().skip(1).collect();
