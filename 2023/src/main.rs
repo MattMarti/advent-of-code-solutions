@@ -1,24 +1,25 @@
 use std::collections::HashSet;
 use std::env;
 
-mod dec_01_what;
+mod dec_01_trebuchet;
 
 struct ProgramOption {
     pub names: HashSet<String>,
     pub func: fn(&[String]) -> (),
+    pub hint: String,
 }
 
 fn print_help(options: &[ProgramOption]) {
     println!("Usage: main [problem] [input file]");
     println!("Arguments: ");
     for opt in options {
-        print!("  ");
+        print!(" [");
         let mut sep = "";
         for name in opt.names.iter() {
             print!("{sep}{name}");
             sep = ", ";
         }
-        println!();
+        println!("] {}", opt.hint);
     }
 }
 
@@ -50,10 +51,12 @@ fn main() {
         ProgramOption {
             names: cmdset!["foo"],
             func: foo,
+            hint: String::from("[file]"),
         },
         ProgramOption {
             names: cmdset!["day-01", "1", "what"],
-            func: dec_01_what::run,
+            func: dec_01_trebuchet::run,
+            hint: String::from("[file] [part_1, part_2]"),
         },
     ];
     let args: Vec<String> = env::args().skip(1).collect();
