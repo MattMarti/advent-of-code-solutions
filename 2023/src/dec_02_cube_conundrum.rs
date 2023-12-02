@@ -1,10 +1,11 @@
+use core::iter::zip;
 use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::load_file_lines;
 
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct CubeCounts {
     red: usize,
     green: usize,
@@ -12,7 +13,7 @@ struct CubeCounts {
 }
 
 impl CubeCounts {
-    pub fn from_line(line: &str) -> Self {
+    pub fn from_str(line: &str) -> Self {
         lazy_static! {
             static ref RE_COLORS: Regex = Regex::new(
                 r"(?<count>\d+) (?<color>((blue)|(red)|(green)))"
@@ -45,12 +46,12 @@ fn load_game_results(path: &str) -> Vec<Vec<CubeCounts>> {
                 split_idxs.push(i);
             }
         }
-        split_idxs.push(line.chars().count());
-        // Now work with the split indices
-        for (start, end) in split_idxs.iter() // TODO iterate twice
+        let num_chars = line.chars().count();
+        split_idxs.push(num_chars);
+        for (&start, &end) in zip(split_idxs.iter().take(num_chars), split_idxs.iter().skip(1))
         {
-            round_results.push(CubeCounts::from_line(line[start, end]));
-            i = end;
+            let substr = line.chars().take(end).skip(start).collect::<String>();
+            round_results.push(CubeCounts::from_str(&substr));
         }
         game_results.push(round_results);
     }
@@ -60,4 +61,15 @@ fn load_game_results(path: &str) -> Vec<Vec<CubeCounts>> {
 
 pub fn run(args: &[String]) {
     let game_results = load_game_results(&args[0]);
+
+    if args.contains(&String::from("debug")) {
+        for (i, round) in game_results.iter().enumerate() {
+            println!("Game {i}:");
+            for res in round.iter() {
+                println!("- {:?}", res);
+            }
+        }
+    }
+
+
 }

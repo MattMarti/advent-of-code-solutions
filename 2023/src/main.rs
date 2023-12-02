@@ -79,7 +79,7 @@ fn main() {
         ProgramOption {
             names: cmdset!["day-02", "2", "cube-conundrum"],
             func: dec_02_cube_conundrum::run,
-            hint: String::from("[file]"),
+            hint: String::from("[file] [debug]"),
         },
     ];
     let args: Vec<String> = env::args().skip(1).collect();
