@@ -1,7 +1,24 @@
 use std::collections::HashSet;
 use std::env;
+use std::fs::File;
+use std::io::{self, prelude::*, BufReader};
 
 mod dec_01_trebuchet;
+
+pub fn load_file_lines(path: &str) -> io::Result<Vec<String>> {
+    let mut lines = Vec::<_>::new();
+    println!("Opening {}", path);
+    let file = File::open(path)?;
+    let reader = BufReader::new(file);
+    for line_input in reader.lines() {
+        if let Ok(line) = line_input {
+            lines.push(line);
+        } else {
+            break;
+        }
+    }
+    Ok(lines)
+}
 
 struct ProgramOption {
     pub names: HashSet<String>,

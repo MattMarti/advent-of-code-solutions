@@ -1,20 +1,4 @@
-use std::fs::File;
-use std::io::{self, prelude::*, BufReader};
-
-fn get_file_contents(path: &str) -> io::Result<Vec<String>> {
-    let mut values = Vec::<String>::new();
-    println!("Opening {}", path);
-    let file = File::open(path)?;
-    let reader = BufReader::new(file);
-    for line_input in reader.lines() {
-        if let Ok(line) = line_input {
-            values.push(line);
-        } else {
-            break;
-        }
-    }
-    Ok(values)
-}
+use crate::load_file_lines;
 
 fn get_digits(lines: &[String], check_words: bool) -> Vec<i64> {
     let take_values = if check_words { 2 } else { 1 };
@@ -65,7 +49,7 @@ fn get_digits(lines: &[String], check_words: bool) -> Vec<i64> {
 }
 
 pub fn run(args: &[String]) {
-    let lines = get_file_contents(&args[0]).unwrap();
+    let lines = load_file_lines(&args[0]).unwrap();
 
     let check_words = args.len() >= 2 && args[1] == "part_2";
 
