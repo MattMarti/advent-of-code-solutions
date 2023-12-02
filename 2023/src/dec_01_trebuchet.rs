@@ -37,7 +37,6 @@ fn get_digits(lines: &[String], check_words: bool) -> Vec<i64> {
                 }
             }
         }
-        // TODO check if no digit found!
         if let (Some(first), Some(last)) = (digits.first(), digits.last()) {
             println!("- [{first}, {last}]");
             first_last_digits.push((10 * first + last) as i64);
