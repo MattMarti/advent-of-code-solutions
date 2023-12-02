@@ -33,13 +33,26 @@ impl CubeCounts {
     }
 }
 
+// game > round > set
 fn load_game_results(path: &str) -> Vec<Vec<CubeCounts>> {
     let mut game_results = Vec::<Vec::<CubeCounts>>::new();
     for line in load_file_lines(path).unwrap().iter() {
         let mut round_results = Vec::<CubeCounts>::new();
-            // Find where each round begins and ends
-            // Make counts for each round
-            game_results.push(round_results);
+
+        let mut split_idxs = Vec::<_>::new();
+        for (i, c) in line.chars().enumerate() {
+            if c == ':' || c == ';' {
+                split_idxs.push(i);
+            }
+        }
+        split_idxs.push(line.chars().count());
+        // Now work with the split indices
+        for (start, end) in split_idxs.iter() // TODO iterate twice
+        {
+            round_results.push(CubeCounts::from_line(line[start, end]));
+            i = end;
+        }
+        game_results.push(round_results);
     }
     game_results
 }
