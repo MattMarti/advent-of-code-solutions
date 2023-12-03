@@ -1,33 +1,17 @@
 use crate::load_file_lines;
 
-const NUM_SYMBOLS: &'static [char] = &['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
-const NON_SPECIAL_SYMBOLS: &'static [char] =
-    &['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '.'];
-
-fn get_symbol_locs(lines: &[String]) -> Vec<Vec<bool>> {
-    let mut symbol_locs = Vec::<_>::new();
-    symbol_locs.reserve(lines.len());
-    for line in lines.iter() {
-        let mut row = Vec::<_>::new();
-        row.reserve(line.chars().count());
-        for c in line.chars() {
-            row.push(!NON_SPECIAL_SYMBOLS.contains(&c));
-        }
-        symbol_locs.push(row);
-    }
-    symbol_locs
+fn is_special_symbol(c: char) -> bool {
+    c != '.' && !c.is_numeric()
 }
 
 // Negative numbers represent no digits
 fn get_digits(lines: &[String]) -> Vec<Vec<i8>> {
-    let mut digits = Vec::<_>::new();
-    digits.reserve(lines.len());
+    let mut digits = Vec::with_capacity(lines.len());
     for line in lines.iter() {
-        let mut row = Vec::<_>::new();
-        row.reserve(line.chars().count());
+        let mut row = Vec::with_capacity(line.chars().count());
         for (j, c) in line.chars().enumerate() {
             row.push(-1);
-            if NUM_SYMBOLS.contains(&c) {
+            if c.is_numeric() {
                 row[j] = c.to_string().parse::<i8>().unwrap();
             }
         }
@@ -36,15 +20,21 @@ fn get_digits(lines: &[String]) -> Vec<Vec<i8>> {
     digits
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 struct NumCoord {
-    row: i32,
-    start: i32,
-    end: i32,
+    row: usize,
+    start: usize,
+    end: usize,
+}
+
+impl NumCoord {
+    pub fn contains(&self, coord: (usize, usize)) -> bool {
+        self.row == coord.0 && (self.start <= coord.1 && coord.1 < self.end)
+    }
 }
 
 fn get_number_coords(digits: &[Vec<i8>]) -> Vec<NumCoord> {
-    let mut num_coords = Vec::<_>::new();
+    let mut num_coords = Vec::new();
     for (i, row_digits) in digits.iter().enumerate() {
         let mut j = 0;
         while j < row_digits.len() {
@@ -54,9 +44,9 @@ fn get_number_coords(digits: &[Vec<i8>]) -> Vec<NumCoord> {
                     j += 1;
                 }
                 num_coords.push(NumCoord {
-                    row: i as i32,
-                    start: start as i32,
-                    end: j as i32,
+                    row: i,
+                    start,
+                    end: j,
                 });
             } else {
                 j += 1;
@@ -66,39 +56,85 @@ fn get_number_coords(digits: &[Vec<i8>]) -> Vec<NumCoord> {
     num_coords
 }
 
+fn get_adjacent_symbols(lines: &[String], coord: &NumCoord) -> Vec<char> {
+    let i_start = i32::max(coord.row as i32 - 1, 0) as usize;
+    let i_end = coord.row + 2;
+    let j_start = i32::max(coord.start as i32 - 1, 0) as usize;
+    let j_end = coord.end + 1;
+    let mut adjacent_symbols = Vec::new();
+    for line in lines.iter().take(i_end).skip(i_start) {
+        for c in line.chars().take(j_end).skip(j_start) {
+            if is_special_symbol(c) {
+                adjacent_symbols.push(c);
+            }
+        }
+    }
+    adjacent_symbols
+}
+
+// TODO Should probably return a result lol
+fn parse_num(lines: &[String], coord: &NumCoord) -> i64 {
+    let row = coord.row;
+    let start = coord.start;
+    let end = coord.end;
+    let substr = lines[row].chars().take(end).skip(start).collect::<String>();
+    substr.parse().unwrap()
+}
+
 fn find_non_adjacent_nums(lines: &[String], verbose: bool) -> Vec<i64> {
-    let mut nums = Vec::<_>::new();
-    let spec_symbols = get_symbol_locs(&lines);
-    let digit_coords = get_number_coords(&get_digits(&lines));
+    let mut nums = Vec::new();
+    let digit_coords = get_number_coords(&get_digits(lines));
     if verbose {
         println!("Digit coordinates:");
         for coord in digit_coords.iter() {
             println!("- {} : [{}, {}]", coord.row, coord.start, coord.end);
         }
     }
-    let range_i = spec_symbols.len() as i32;
-    let range_j = spec_symbols[0].len() as i32;
     for coord in digit_coords.iter() {
-        let min_i = i32::max(coord.row - 1, 0) as usize;
-        let max_i = i32::min(coord.row + 2, range_i) as usize;
-        let min_j = i32::max(coord.start - 1, 0) as usize;
-        let max_j = i32::min(coord.end + 1, range_j) as usize;
-        let mut has_adjacent_symbols = false;
-        for i in min_i..max_i {
-            for j in min_j..max_j {
-                has_adjacent_symbols |= spec_symbols[i][j];
-            }
-        }
-        if has_adjacent_symbols {
-            let row = coord.row as usize;
-            let start = coord.start as usize;
-            let end = coord.end as usize;
-            let substr = lines[row].chars().take(end).skip(start).collect::<String>();
-            let value = substr.parse::<_>().unwrap();
-            nums.push(value);
+        if !get_adjacent_symbols(lines, coord).is_empty() {
+            nums.push(parse_num(lines, coord));
         }
     }
     nums
+}
+
+fn find_boardering_nums(sym_coord: (usize, usize), num_coords: &[NumCoord]) -> Vec<NumCoord> {
+    let mut adjacent_nums = Vec::new();
+    let i_start = i32::max(sym_coord.0 as i32 - 1, 0) as usize;
+    let i_end = sym_coord.0 + 2;
+    let j_start = i32::max(sym_coord.1 as i32 - 1, 0) as usize;
+    let j_end = sym_coord.1 + 2;
+    for coord in num_coords.iter() {
+        // TOOD There's a more efficient way lmao
+        'coord_check: for i in i_start..i_end {
+            for j in j_start..j_end {
+                if coord.contains((i, j)) {
+                    adjacent_nums.push(*coord);
+                    break 'coord_check;
+                }
+            }
+        }
+    }
+    adjacent_nums
+}
+
+// A gear ratio is a star with two adjacent numbers
+fn find_gear_ratios(lines: &[String]) -> Vec<i64> {
+    let mut gear_ratios = Vec::new();
+    let all_num_coords = get_number_coords(&get_digits(lines));
+    for (i, line) in lines.iter().enumerate() {
+        for (j, c) in line.chars().enumerate() {
+            if c == '*' {
+                let nums = find_boardering_nums((i, j), &all_num_coords);
+                if nums.len() == 2 {
+                    let first = parse_num(lines, &nums[0]);
+                    let second = parse_num(lines, &nums[1]);
+                    gear_ratios.push(first * second);
+                }
+            }
+        }
+    }
+    gear_ratios
 }
 
 pub fn run(args: &[String]) {
@@ -108,4 +144,7 @@ pub fn run(args: &[String]) {
 
     let lonely_nums = find_non_adjacent_nums(&lines, verbose);
     println!("Part 1 checksum: {}", lonely_nums.iter().sum::<i64>());
+
+    let gear_ratios = find_gear_ratios(&lines);
+    println!("Part 2 checksum: {}", gear_ratios.iter().sum::<i64>());
 }
