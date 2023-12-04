@@ -6,6 +6,7 @@ use std::io::{self, prelude::*, BufReader};
 mod dec_01_trebuchet;
 mod dec_02_cube_conundrum;
 mod dec_03_gear_ratios;
+mod dec_04_scratchcards;
 
 pub fn load_file_lines(path: &str) -> io::Result<Vec<String>> {
     let mut lines = Vec::<_>::new();
@@ -85,6 +86,11 @@ fn main() {
         ProgramOption {
             names: cmdset!["day-03", "3", "gear-ratios"],
             func: dec_03_gear_ratios::run,
+            hint: String::from("[file] [debug]"),
+        },
+        ProgramOption {
+            names: cmdset!["day-04", "4", "scratchcards"],
+            func: dec_04_scratchcards::run,
             hint: String::from("[file] [debug]"),
         },
     ];
