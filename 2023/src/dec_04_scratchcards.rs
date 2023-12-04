@@ -1,13 +1,11 @@
 use crate::load_file_lines;
 
-use std::collections::HashSet;
-
 extern crate colored;
 use colored::*;
 
 struct Card {
-    winning_nums: HashSet<i32>,
-    user_nums: HashSet<i32>,
+    winning_nums: Vec<i32>,
+    user_nums: Vec<i32>,
 }
 
 impl Card {
@@ -16,42 +14,71 @@ impl Card {
         let win_num_end = s.chars().position(|c| c == '|').unwrap() - 1;
         let user_num_start = s.chars().position(|c| c == '|').unwrap() + 1;
         Self {
-            winning_nums: s.chars().into_iter()
+            winning_nums: s
+                .chars()
                 .take(win_num_end)
                 .skip(win_num_start)
                 .collect::<String>()
-                .split(" ")
+                .split(' ')
                 .filter_map(|n| n.parse().ok())
                 .collect(),
-            user_nums: s.chars().into_iter()
+            user_nums: s
+                .chars()
                 .skip(user_num_start)
                 .collect::<String>()
-                .split(" ")
+                .split(' ')
                 .filter_map(|n| n.parse().ok())
                 .collect(),
         }
     }
 }
 
-
 pub fn run(args: &[String]) {
     let lines = load_file_lines(&args[0]).unwrap();
-    let cards: Vec<Card> = lines.iter().map(|s| Card::from_str(&s)).collect();
-
     let mut total_score = 0;
-    for (i, c) in cards.iter().enumerate() {
+    for (i, line) in lines.iter().enumerate() {
+        // Print first half
+        if let Some(idx) = line.chars().position(|c| c == ':') {
+            print!("{}: ", line.chars().take(idx).collect::<String>());
+        } else {
+            println!("Parse error on line {i}");
+            continue;
+        }
+
+        // Print winning numbers
+        let card = Card::from_str(line);
         let mut score = 0;
-        for win_num in c.winning_nums.iter() {
-            if c.user_nums.contains(win_num) {
-                if score == 0 { score = 1;}
-                else { score *= 2;}
+        for win_num in card.winning_nums.iter() {
+            let output = format!("{:2} ", win_num);
+            if card.user_nums.contains(win_num) {
+                if score == 0 {
+                    score = 1;
+                } else {
+                    score *= 2;
+                }
+                print!("{}", output.green());
+            } else {
+                print!("{}", output);
             }
         }
-        println!("Card {}: {}", i + 1, score);
         total_score += score;
+
+        // Print user numbers
+        print!("|");
+        for user_num in card.user_nums.iter() {
+            let output = format!(" {:2}", user_num);
+            if card.winning_nums.contains(user_num) {
+                print!("{}", output.green());
+            } else {
+                print!("{}", output);
+            }
+        }
+
+        // Finish
+        println!(" ({score})");
     }
-    println!("Card score: {total_score}");
-    println!("{} {}", "merry".red(), "christmas!".green());
+
+    println!("Total score: {total_score}");
 }
 
 #[cfg(test)]
