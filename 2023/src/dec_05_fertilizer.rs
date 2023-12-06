@@ -34,7 +34,7 @@ impl fmt::Debug for AlmanacRange {
 
 #[derive(Debug)]
 struct AlmanacMap {
-    src_type: String,
+    //src_type: String, // TODO if maps aren't sorted
     dest_type: String,
     ranges: Vec<AlmanacRange>,
 }
@@ -47,7 +47,7 @@ impl AlmanacMap {
         };
         if let Some(cap) = RE.captures(range_decl) {
             Some(Self {
-                src_type: cap["src_type"].to_owned(),
+                //src_type: cap["src_type"].to_owned(), // TODO if maps aren't sorted
                 dest_type: cap["dest_type"].to_owned(),
                 ranges: Vec::new(),
             })
@@ -124,7 +124,27 @@ pub fn run(args: &[String]) {
         values.iter_mut().for_each(|v| *v = m.transform(*v));
         println!("{:?}", values);
     }
-    println!("Lowest location: {}", values.iter().min().unwrap());
+    println!("Lowest location (part 1): {}", values.iter().min().unwrap());
+
+    println!();
+    println!("Starting part 2...");
+    let mut min_loc = usize::MAX;
+    for (start, range) in seeds
+        .iter()
+        .take(seeds.len() - 1)
+        .step_by(2)
+        .zip(seeds.iter().skip(1).step_by(2))
+    {
+        println!("Checking range [{}, {}]", *start, *start + *range);
+        for mut value in *start..*start + *range {
+            for m in maps.iter() {
+                // TODO Assuming map traversal is in order
+                value = m.transform(value);
+            }
+            min_loc = usize::min(value, min_loc);
+        }
+    }
+    println!("Lowest location (part 2): {}", min_loc);
 }
 
 #[cfg(test)]
@@ -135,7 +155,7 @@ pub mod test {
     fn test_map_delcaration() {
         let line = "source-to-dest map:";
         let map = AlmanacMap::from_decl(&line).unwrap();
-        assert_eq!(map.src_type, "source");
+        //assert_eq!(map.src_type, "source");
         assert_eq!(map.dest_type, "dest");
     }
 }
