@@ -70,7 +70,7 @@ pub fn run(args: &[String]) {
         } else {
             0
         };
-        let max_score = 1 << card.winning_nums.len() - 1;
+        let max_score = 1 << (card.winning_nums.len() - 1);
         if score == max_score {
             print!("\r");
             print_first_part(line).unwrap();
