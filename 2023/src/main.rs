@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::env;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
@@ -7,6 +6,7 @@ mod dec_01_trebuchet;
 mod dec_02_cube_conundrum;
 mod dec_03_gear_ratios;
 mod dec_04_scratchcards;
+mod dec_05_fertilizer;
 
 pub fn load_file_lines(path: &str) -> io::Result<Vec<String>> {
     let mut lines = Vec::<_>::new();
@@ -24,7 +24,7 @@ pub fn load_file_lines(path: &str) -> io::Result<Vec<String>> {
 }
 
 struct ProgramOption {
-    pub names: HashSet<String>,
+    pub names: Vec<String>,
     pub func: fn(&[String]) -> (),
     pub hint: String,
 }
@@ -91,6 +91,11 @@ fn main() {
         ProgramOption {
             names: cmdset!["day-04", "4", "scratchcards"],
             func: dec_04_scratchcards::run,
+            hint: String::from("[file]"),
+        },
+        ProgramOption {
+            names: cmdset!["day-05", "5", "almanac"],
+            func: dec_05_fertilizer::run,
             hint: String::from("[file] [debug]"),
         },
     ];
