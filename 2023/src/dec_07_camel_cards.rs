@@ -17,6 +17,7 @@ mod hand_types {
 struct Hand {
     pub cards: Vec<char>,
     pub bid: usize,
+    pub part_2: bool,
 }
 
 impl Hand {
@@ -25,6 +26,7 @@ impl Hand {
         Self {
             cards: split[0].chars().collect(),
             bid: split[1].parse().unwrap(),
+            part_2: false,
         }
     }
 
@@ -36,24 +38,36 @@ impl Hand {
             }
             *counts.get_mut(c).unwrap() += 1;
         }
-        if counts.len() == 1 {
-            hand_types::FIVE_OF_KIND
-        } else if counts.len() == 5 {
-            hand_types::HIGH_CARD
-        } else if counts.len() == 4 {
-            hand_types::ONE_PAIR
-        } else {
-            let longest = *counts.values().max().unwrap();
-            if longest == 4 {
-                hand_types::FOUR_OF_KIND
-            } else if longest == 3 && counts.len() == 2 {
-                hand_types::FULL_HOUSE
-            } else if longest == 3 && counts.len() == 3 {
-                hand_types::THREE_OF_KIND
+        let raw_longest = counts
+            .iter()
+            .filter_map(|(k, v)| if *k != 'J' { Some(*v) } else { None })
+            .max()
+            .unwrap_or(0);
+        let longest: usize = if self.part_2 {
+            let j_counts: usize = if counts.contains_key(&'J') {
+                *counts.get(&'J').unwrap()
             } else {
-                // counts.len() == 3 {
-                hand_types::TWO_PAIR
-            }
+                0
+            };
+            raw_longest + j_counts
+        } else {
+            raw_longest
+        };
+        if longest == 5 {
+            hand_types::FIVE_OF_KIND
+        } else if longest == 4 {
+            hand_types::FOUR_OF_KIND
+        } else if longest == 2 {
+            hand_types::ONE_PAIR
+        } else if longest == 1 {
+            hand_types::HIGH_CARD
+        } else if longest == 3 && counts.len() == 2 {
+            hand_types::FULL_HOUSE
+        } else if longest == 3 && counts.len() == 3 {
+            hand_types::THREE_OF_KIND
+        } else {
+            // counts.len() == 3 {
+            hand_types::TWO_PAIR
         }
     }
 }
@@ -77,7 +91,7 @@ fn card_value(c: char) -> usize {
         '8' => 7,
         '9' => 8,
         'T' => 9,
-        'J' => 10,
+        'J' => 0,
         'Q' => 11,
         'K' => 12,
         'A' => 13,
@@ -115,6 +129,16 @@ impl Ord for Hand {
     }
 }
 
+fn calc_total_winnings(hands: &[Hand]) -> usize {
+    let mut bid_sum: usize = 0;
+    let mut bid_multiplier = 1;
+    for bid in hands.iter().map(|h| h.bid) {
+        bid_sum += bid * bid_multiplier;
+        bid_multiplier += 1;
+    }
+    bid_sum
+}
+
 pub fn run(args: &[String]) {
     let lines = load_file_lines(&args[0]).unwrap();
 
@@ -131,13 +155,14 @@ pub fn run(args: &[String]) {
         }
     }
 
-    let mut bid_sum: i128 = 0;
-    let mut bid_multiplier = 1;
-    for bid in hands.iter().map(|h| h.bid) {
-        bid_sum += (bid * bid_multiplier) as i128;
-        bid_multiplier += 1;
+    println!("Total winnings (part 1): {}", calc_total_winnings(&hands));
+
+    for h in hands.iter_mut() {
+        h.part_2 = true;
     }
-    println!("Total winnings (part 1): {bid_sum}");
+    hands.sort();
+
+    println!("Total winnings (part 2): {}", calc_total_winnings(&hands));
 }
 
 #[cfg(test)]
