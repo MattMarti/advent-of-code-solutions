@@ -38,36 +38,45 @@ impl Hand {
             }
             *counts.get_mut(c).unwrap() += 1;
         }
-        let raw_longest = counts
-            .iter()
-            .filter_map(|(k, v)| if *k != 'J' { Some(*v) } else { None })
-            .max()
-            .unwrap_or(0);
-        let longest: usize = if self.part_2 {
-            let j_counts: usize = if counts.contains_key(&'J') {
-                *counts.get(&'J').unwrap()
-            } else {
-                0
-            };
+        let raw_longest: usize = if self.part_2 {
+            *counts
+                .iter()
+                .filter_map(|(k, v)| match k {
+                    'J' => None,
+                    _ => Some(v),
+                })
+                .max()
+                .unwrap_or(&0)
+        } else {
+            *counts.values().max().unwrap()
+        };
+        let j_counts = *counts.get(&'J').unwrap_or(&0);
+        let longest = if self.part_2 {
             raw_longest + j_counts
         } else {
             raw_longest
+        };
+        let num_unique = if self.part_2 {
+            counts.len() - j_counts
+        } else {
+            counts.len()
         };
         if longest == 5 {
             hand_types::FIVE_OF_KIND
         } else if longest == 4 {
             hand_types::FOUR_OF_KIND
-        } else if longest == 2 {
+        } else if longest == 3 && num_unique == 2 {
+            hand_types::FULL_HOUSE
+        } else if longest == 3 && num_unique == 3 {
+            hand_types::THREE_OF_KIND
+        } else if longest == 2 && num_unique == 3 {
+            hand_types::TWO_PAIR
+        } else if longest == 2 && num_unique == 4 {
             hand_types::ONE_PAIR
         } else if longest == 1 {
             hand_types::HIGH_CARD
-        } else if longest == 3 && counts.len() == 2 {
-            hand_types::FULL_HOUSE
-        } else if longest == 3 && counts.len() == 3 {
-            hand_types::THREE_OF_KIND
         } else {
-            // counts.len() == 3 {
-            hand_types::TWO_PAIR
+            panic!("Unhandled case! {}", self.cards.iter().collect::<String>());
         }
     }
 }
@@ -80,7 +89,7 @@ impl PartialEq for Hand {
 
 impl Eq for Hand {}
 
-fn card_value(c: char) -> usize {
+fn card_value(c: char, is_part_2: bool) -> usize {
     match c {
         '2' => 1,
         '3' => 2,
@@ -91,7 +100,13 @@ fn card_value(c: char) -> usize {
         '8' => 7,
         '9' => 8,
         'T' => 9,
-        'J' => 0,
+        'J' => {
+            if is_part_2 {
+                0
+            } else {
+                10
+            }
+        }
         'Q' => 11,
         'K' => 12,
         'A' => 13,
@@ -114,8 +129,8 @@ impl Ord for Hand {
                 for (s, o) in self
                     .cards
                     .iter()
-                    .map(|c| card_value(*c))
-                    .zip(other.cards.iter().map(|c| card_value(*c)))
+                    .map(|c| card_value(*c, self.part_2))
+                    .zip(other.cards.iter().map(|c| card_value(*c, self.part_2)))
                 {
                     match s.cmp(&o) {
                         Ordering::Greater => return Ordering::Greater,
@@ -174,7 +189,8 @@ pub mod test {
         assert_eq!(
             Hand {
                 cards: "AAAAA".chars().collect(),
-                bid: 0
+                bid: 0,
+                part_2: false,
             }
             .strength(),
             hand_types::FIVE_OF_KIND
@@ -182,7 +198,8 @@ pub mod test {
         assert_eq!(
             Hand {
                 cards: "AA8AA".chars().collect(),
-                bid: 0
+                bid: 0,
+                part_2: false,
             }
             .strength(),
             hand_types::FOUR_OF_KIND
@@ -190,7 +207,8 @@ pub mod test {
         assert_eq!(
             Hand {
                 cards: "23332".chars().collect(),
-                bid: 0
+                bid: 0,
+                part_2: false,
             }
             .strength(),
             hand_types::FULL_HOUSE
@@ -198,7 +216,8 @@ pub mod test {
         assert_eq!(
             Hand {
                 cards: "TTT98".chars().collect(),
-                bid: 0
+                bid: 0,
+                part_2: false,
             }
             .strength(),
             hand_types::THREE_OF_KIND
@@ -206,7 +225,8 @@ pub mod test {
         assert_eq!(
             Hand {
                 cards: "23432".chars().collect(),
-                bid: 0
+                bid: 0,
+                part_2: false,
             }
             .strength(),
             hand_types::TWO_PAIR
@@ -214,7 +234,8 @@ pub mod test {
         assert_eq!(
             Hand {
                 cards: "A23A4".chars().collect(),
-                bid: 0
+                bid: 0,
+                part_2: false,
             }
             .strength(),
             hand_types::ONE_PAIR
@@ -222,10 +243,48 @@ pub mod test {
         assert_eq!(
             Hand {
                 cards: "23456".chars().collect(),
-                bid: 0
+                bid: 0,
+                part_2: false,
             }
             .strength(),
             hand_types::HIGH_CARD
+        );
+    }
+
+    #[test]
+    fn test_card_types_part_2() {
+        assert_eq!(
+            Hand {
+                cards: "QJJQQ".chars().collect(),
+                bid: 0,
+                part_2: true,
+            }
+            .strength(),
+            hand_types::FIVE_OF_KIND
+        );
+        assert_eq!(
+            Hand {
+                cards: "QJJQ2".chars().collect(),
+                bid: 0,
+                part_2: true,
+            }
+            .strength(),
+            hand_types::FOUR_OF_KIND
+        );
+    }
+
+    #[test]
+    fn test_card_order_part_2() {
+        assert!(
+            Hand {
+                cards: "JKKK2".chars().collect(),
+                bid: 0,
+                part_2: true,
+            } < Hand {
+                cards: "QQQQ2".chars().collect(),
+                bid: 0,
+                part_2: true,
+            }
         );
     }
 }
