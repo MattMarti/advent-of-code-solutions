@@ -57,7 +57,7 @@ impl Hand {
             raw_longest
         };
         let num_unique = if self.part_2 {
-            counts.len() - j_counts
+            counts.len() - if j_counts > 0 { 1 } else { 0 }
         } else {
             counts.len()
         };
@@ -183,105 +183,79 @@ pub fn run(args: &[String]) {
 #[cfg(test)]
 pub mod test {
     use super::*;
+    use rstest::rstest;
 
-    #[test]
-    fn test_card_types() {
+    #[rstest]
+    #[case("AAAAA", hand_types::FIVE_OF_KIND)]
+    #[case("AA8AA", hand_types::FOUR_OF_KIND)]
+    #[case("23332", hand_types::FULL_HOUSE)]
+    #[case("TTT98", hand_types::THREE_OF_KIND)]
+    #[case("23432", hand_types::TWO_PAIR)]
+    #[case("A23A4", hand_types::ONE_PAIR)]
+    #[case("23456", hand_types::HIGH_CARD)]
+    #[case("JJ7K7", hand_types::TWO_PAIR)]
+    fn test_card_types(#[case] hand: &str, #[case] hand_type: usize) {
         assert_eq!(
             Hand {
-                cards: "AAAAA".chars().collect(),
+                cards: hand.chars().collect(),
                 bid: 0,
                 part_2: false,
             }
             .strength(),
-            hand_types::FIVE_OF_KIND
-        );
-        assert_eq!(
-            Hand {
-                cards: "AA8AA".chars().collect(),
-                bid: 0,
-                part_2: false,
-            }
-            .strength(),
-            hand_types::FOUR_OF_KIND
-        );
-        assert_eq!(
-            Hand {
-                cards: "23332".chars().collect(),
-                bid: 0,
-                part_2: false,
-            }
-            .strength(),
-            hand_types::FULL_HOUSE
-        );
-        assert_eq!(
-            Hand {
-                cards: "TTT98".chars().collect(),
-                bid: 0,
-                part_2: false,
-            }
-            .strength(),
-            hand_types::THREE_OF_KIND
-        );
-        assert_eq!(
-            Hand {
-                cards: "23432".chars().collect(),
-                bid: 0,
-                part_2: false,
-            }
-            .strength(),
-            hand_types::TWO_PAIR
-        );
-        assert_eq!(
-            Hand {
-                cards: "A23A4".chars().collect(),
-                bid: 0,
-                part_2: false,
-            }
-            .strength(),
-            hand_types::ONE_PAIR
-        );
-        assert_eq!(
-            Hand {
-                cards: "23456".chars().collect(),
-                bid: 0,
-                part_2: false,
-            }
-            .strength(),
-            hand_types::HIGH_CARD
+            hand_type
         );
     }
 
-    #[test]
-    fn test_card_types_part_2() {
+    #[rstest]
+    #[case("QJJQQ", hand_types::FIVE_OF_KIND)]
+    #[case("QJJQ2", hand_types::FOUR_OF_KIND)]
+    #[case("AAAAA", hand_types::FIVE_OF_KIND)]
+    #[case("AAAAJ", hand_types::FIVE_OF_KIND)]
+    #[case("AAAJJ", hand_types::FIVE_OF_KIND)]
+    #[case("AAJJJ", hand_types::FIVE_OF_KIND)]
+    #[case("AJJJJ", hand_types::FIVE_OF_KIND)]
+    #[case("JJJJJ", hand_types::FIVE_OF_KIND)]
+    #[case("AA8AA", hand_types::FOUR_OF_KIND)]
+    #[case("AA8JA", hand_types::FOUR_OF_KIND)]
+    #[case("AA8JJ", hand_types::FOUR_OF_KIND)]
+    #[case("23332", hand_types::FULL_HOUSE)]
+    #[case("23J32", hand_types::FULL_HOUSE)]
+    #[case("2333J", hand_types::FOUR_OF_KIND)]
+    #[case("JJ332", hand_types::FOUR_OF_KIND)]
+    #[case("TTT98", hand_types::THREE_OF_KIND)]
+    #[case("TTJ98", hand_types::THREE_OF_KIND)]
+    #[case("TTTJ8", hand_types::FOUR_OF_KIND)]
+    #[case("23432", hand_types::TWO_PAIR)]
+    #[case("J3432", hand_types::THREE_OF_KIND)]
+    #[case("23J32", hand_types::FULL_HOUSE)]
+    #[case("A23A4", hand_types::ONE_PAIR)]
+    #[case("A23J4", hand_types::ONE_PAIR)]
+    #[case("A23AJ", hand_types::THREE_OF_KIND)]
+    #[case("23456", hand_types::HIGH_CARD)]
+    #[case("J3456", hand_types::ONE_PAIR)]
+    #[case("JJ7K7", hand_types::FOUR_OF_KIND)]
+    fn test_card_types_part_2(#[case] hand: &str, #[case] hand_type: usize) {
         assert_eq!(
             Hand {
-                cards: "QJJQQ".chars().collect(),
+                cards: hand.chars().collect(),
                 bid: 0,
                 part_2: true,
             }
             .strength(),
-            hand_types::FIVE_OF_KIND
-        );
-        assert_eq!(
-            Hand {
-                cards: "QJJQ2".chars().collect(),
-                bid: 0,
-                part_2: true,
-            }
-            .strength(),
-            hand_types::FOUR_OF_KIND
+            hand_type
         );
     }
 
-    #[test]
-    fn test_card_order_part_2() {
+    #[rstest]
+    #[case("JKKK2", "QQQQ2")]
+    fn test_card_order_part_2(#[case] lesser: &str, #[case] greater: &str) {
         assert!(
             Hand {
-                cards: "JKKK2".chars().collect(),
+                cards: lesser.chars().collect(),
                 bid: 0,
                 part_2: true,
             } < Hand {
-                cards: "QQQQ2".chars().collect(),
+                cards: greater.chars().collect(),
                 bid: 0,
                 part_2: true,
             }
