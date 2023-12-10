@@ -8,6 +8,7 @@ mod dec_03_gear_ratios;
 mod dec_04_scratchcards;
 mod dec_05_fertilizer;
 mod dec_06_wait_for_it;
+mod dec_07_camel_cards;
 
 pub fn load_file_lines(path: &str) -> io::Result<Vec<String>> {
     let mut lines = Vec::<_>::new();
@@ -103,6 +104,11 @@ fn main() {
             names: cmdset!["day-06", "6", "wait_for_it"],
             func: dec_06_wait_for_it::run,
             hint: String::from("[file]"),
+        },
+        ProgramOption {
+            names: cmdset!["day-07", "7", "camel_cards"],
+            func: dec_07_camel_cards::run,
+            hint: String::from("[file] [debug]"),
         },
     ];
     let args: Vec<String> = env::args().skip(1).collect();
