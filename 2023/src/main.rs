@@ -114,7 +114,7 @@ fn main() {
         ProgramOption {
             names: cmdset!["day-08", "8", "haunted-wasteland"],
             func: dec_08_haunted_wasteland::run,
-            hint: String::from("[file] [debug]"),
+            hint: String::from("[file]"),
         },
     ];
     let args: Vec<String> = env::args().skip(1).collect();

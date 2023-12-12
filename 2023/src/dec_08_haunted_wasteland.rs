@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 use crate::load_file_lines;
 
 use lazy_static::lazy_static;
@@ -34,21 +36,16 @@ impl Node {
     }
 }
 
-fn lowest_common_denom(nums: &[usize]) -> usize {
-    let mut prod = nums[0];
-    for n in nums.iter().skip(1) {
-        if prod % n != 0 {
-            prod *= n
-        }
-    }
-    prod
-}
-
-fn count_steps_to_z(directions: &[Direction], nodes: &[Node], start: &str) -> usize {
-    let mut num_steps = 0;
+fn count_steps_to_z<'n>(
+    directions: &[Direction],
+    nodes: &'n [Node],
+    start: &'n str,
+) -> HashMap<&'n str, usize> {
     let mut i = 0;
     let mut curr_name = start;
-    while !curr_name.ends_with('Z') {
+    let mut step_counts = HashMap::new();
+    let mut num_steps = 0;
+    loop {
         if i >= directions.len() {
             i = 0;
         }
@@ -57,15 +54,57 @@ fn count_steps_to_z(directions: &[Direction], nodes: &[Node], start: &str) -> us
             Direction::Left => &curr_node.left,
             Direction::Right => &curr_node.right,
         };
+        if curr_name.ends_with('Z') {
+            if step_counts.contains_key(curr_name) {
+                break;
+            }
+            step_counts.insert(curr_name, num_steps + 1);
+        }
         i += 1;
         num_steps += 1;
     }
-    num_steps
+    step_counts
+}
+
+fn get_factors(x: usize) -> Vec<usize> {
+    let mut factors = Vec::new();
+    let mut x_value = x;
+    // TODO Maybe there's a better way to get multiples
+    for i in 2..(x + 1) {
+        if x_value % i == 0 {
+            factors.push(i);
+            x_value /= i;
+        }
+    }
+    factors
+}
+
+fn get_least_common_multiple(values: &[usize]) -> usize {
+    let mut gc_factors = Vec::<usize>::new();
+    for (a, b) in values
+        .iter()
+        .take(values.len() - 1)
+        .zip(values.iter().skip(1))
+    {
+        gc_factors.push(
+            **get_factors(*a)
+                .iter()
+                .collect::<HashSet<&usize>>()
+                .union(&get_factors(*b).iter().collect::<HashSet<&usize>>())
+                .max()
+                .unwrap_or(&&1),
+        );
+    }
+
+    let mut lcm = values[0];
+    for (x, gcf) in values.iter().skip(1).zip(gc_factors.iter()) {
+        lcm *= x / gcf;
+    }
+    lcm
 }
 
 pub fn run(args: &[String]) {
     let lines = load_file_lines(&args[0]).unwrap();
-    let debug_mode = args.contains(&"debug".to_owned());
     let directions: Vec<Direction> = lines[0]
         .chars()
         .map(|c| {
@@ -82,34 +121,42 @@ pub fn run(args: &[String]) {
         .filter_map(|line| Node::from_str(line).ok())
         .collect();
 
-    let start_names: Vec<&String> = nodes
+    let start_names: Vec<&str> = nodes
         .iter()
         .filter(|n| n.name.ends_with('A'))
-        .map(|n| &n.name)
+        .map(|n| n.name.as_str())
         .collect();
 
-    if start_names.contains(&&String::from("AAA")) {
+    if start_names.contains(&"AAA") {
         println!(
             "Number of steps (part 1): {}",
             count_steps_to_z(&directions, &nodes, "AAA")
+                .get("ZZZ")
+                .unwrap()
         );
     }
 
-    // Assume that the first z value is the only one in the cycle
-    // TODO Visualize this
-    if debug_mode {
-        println!("Num Steps:");
-    }
-    let mut num_steps = vec![0; start_names.len()];
-    for (name, steps) in start_names.iter().zip(num_steps.iter_mut()) {
-        println!("Checking {}", name);
-        *steps = count_steps_to_z(&directions, &nodes, name);
-        if debug_mode {
-            println!("- {name}: {steps}");
+    let path_counts: Vec<HashMap<&str, usize>> = start_names
+        .iter()
+        .map(|n| count_steps_to_z(&directions, &nodes, n))
+        .collect();
+
+    for (start, map) in start_names.iter().zip(path_counts.iter()) {
+        println!("{}:", start);
+        for (k, v) in map.iter() {
+            println!("- {}: {}", k, v);
         }
     }
+
+    // Assuming that each path has only one end
+    let counts: Vec<usize> = path_counts
+        .iter()
+        .map(|map| *map.values().next().unwrap())
+        .collect();
+
+    let lcm = get_least_common_multiple(&counts);
     println!(
         "Number of steps until all z's are reached (part 2): {}",
-        lowest_common_denom(&num_steps)
+        lcm
     );
 }
