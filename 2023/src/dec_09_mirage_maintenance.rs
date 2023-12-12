@@ -1,6 +1,6 @@
 use crate::load_file_lines;
 
-fn extrapolate_one(signal: &[i64]) -> i64 {
+fn extrapolate_one(signal: &[i64]) -> (i64, i64) {
     let mut hist: Vec<Vec<i64>> = Vec::with_capacity(signal.len());
     hist.push(vec![0; signal.len()]);
     hist[0][..signal.len()].clone_from_slice(signal);
@@ -15,11 +15,15 @@ fn extrapolate_one(signal: &[i64]) -> i64 {
         }
         hist.push(curr_row);
     }
-    let mut last = *hist.last().unwrap().last().unwrap();
+    let mut before = hist.last().unwrap()[0];
     for i in (0..hist.len() - 1).rev() {
-        last += *hist[i].last().unwrap();
+        before = hist[i][0] - before;
     }
-    last
+    let mut after = *hist.last().unwrap().last().unwrap();
+    for i in (0..hist.len() - 1).rev() {
+        after += *hist[i].last().unwrap();
+    }
+    (before, after)
 }
 
 pub fn run(args: &[String]) {
@@ -29,10 +33,13 @@ pub fn run(args: &[String]) {
         .map(|l| l.split(' ').filter_map(|n| n.parse().ok()).collect())
         .collect();
 
-    let extrapolated_values: Vec<i64> = dataset
+    let extrapolated_values: Vec<(i64, i64)> = dataset
         .iter()
         .map(|signal| extrapolate_one(signal))
         .collect();
-    let checksum: i64 = extrapolated_values.iter().sum();
-    println!("Sum of extrapolated values (part 1): {checksum}");
+    let checksum_1: i64 = extrapolated_values.iter().map(|(_, a)| *a).sum();
+    println!("Sum of extrapolated values after (part 1): {checksum_1}");
+
+    let checksum_2: i64 = extrapolated_values.iter().map(|(b, _)| *b).sum();
+    println!("Sum of extrapolated values before (part 2): {checksum_2}");
 }
