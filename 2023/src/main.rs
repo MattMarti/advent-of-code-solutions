@@ -10,6 +10,7 @@ mod dec_05_fertilizer;
 mod dec_06_wait_for_it;
 mod dec_07_camel_cards;
 mod dec_08_haunted_wasteland;
+mod dec_09_mirage_maintenance;
 
 pub fn load_file_lines(path: &str) -> io::Result<Vec<String>> {
     let mut lines = Vec::<_>::new();
@@ -114,6 +115,11 @@ fn main() {
         ProgramOption {
             names: cmdset!["day-08", "8", "haunted-wasteland"],
             func: dec_08_haunted_wasteland::run,
+            hint: String::from("[file]"),
+        },
+        ProgramOption {
+            names: cmdset!["day-09", "9", "mirage-maintenance"],
+            func: dec_09_mirage_maintenance::run,
             hint: String::from("[file]"),
         },
     ];
