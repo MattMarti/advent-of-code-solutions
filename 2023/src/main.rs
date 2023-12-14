@@ -126,7 +126,7 @@ fn main() {
         ProgramOption {
             names: cmdset!["day-10", "10", "pipe-maze"],
             func: dec_10_pipe_maze::run,
-            hint: String::from("[file]"),
+            hint: String::from("[file] [frame_period_ms]"),
         },
     ];
     let args: Vec<String> = env::args().skip(1).collect();
