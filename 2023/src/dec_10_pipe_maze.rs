@@ -124,11 +124,22 @@ impl PipeMaze {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum NodeStatus {
+    None,
+    MazeVisited,
+    EmptyVisited,
+    InnerInferred,
+}
+
+// The active_nodes is shared state between the maze search and
+// opening search. Just don't start doing the other task before
+// the first finishes
 struct MazeNavigation<'m> {
     maze: &'m PipeMaze,
     active_nodes: Vec<(usize, usize)>,
-    visited_nodes: Vec<bool>,
-    steps_taken: usize,
+    node_statuses: Vec<NodeStatus>,
+    maze_steps_taken: usize,
 }
 
 impl<'m> MazeNavigation<'m> {
@@ -136,11 +147,11 @@ impl<'m> MazeNavigation<'m> {
         let mut obj = Self {
             maze,
             active_nodes: Vec::new(),
-            visited_nodes: vec![false; maze.num_rows() * maze.num_cols()],
-            steps_taken: 1,
+            node_statuses: vec![NodeStatus::None; maze.num_rows() * maze.num_cols()],
+            maze_steps_taken: 1,
         };
-        let start_idx = obj.get_visited_node_index(&maze.start);
-        obj.visited_nodes[start_idx] = true;
+        let start_idx = obj.to_flat_idx(&maze.start);
+        obj.node_statuses[start_idx] = NodeStatus::MazeVisited;
 
         let col = maze.start.0;
         let row = maze.start.1;
@@ -160,34 +171,29 @@ impl<'m> MazeNavigation<'m> {
     }
 
     fn set_coord_active(&mut self, coord: &(usize, usize)) {
-        let idx = self.get_visited_node_index(coord);
+        let idx = self.to_flat_idx(coord);
         self.active_nodes.push(*coord);
-        self.visited_nodes[idx] = true;
+        self.node_statuses[idx] = NodeStatus::MazeVisited;
     }
 
-    fn get_visited_node_index(&self, coord: &(usize, usize)) -> usize {
-        let col = coord.1;
-        let row = coord.0;
-        self.maze.num_cols() * col + row
+    fn to_flat_idx(&self, coord: &(usize, usize)) -> usize {
+        let row = coord.1;
+        let col = coord.0;
+        self.maze.num_cols() * row + col
     }
 
-    fn is_visited(&self, coord: &(usize, usize)) -> bool {
-        let idx = self.get_visited_node_index(coord);
-        self.visited_nodes[idx]
-    }
-
-    pub fn advance_nodes(&mut self) -> usize {
+    pub fn advance_maze_nav(&mut self) -> usize {
         let mut nodes_advanced = 0;
         let mut next_active_nodes = Vec::new();
         for coord in self.active_nodes.iter() {
             let pathable_coords = self.maze.get_pathable_coords(coord);
             for pc in pathable_coords.iter() {
-                let idx = self.get_visited_node_index(pc);
-                if self.visited_nodes[idx] {
+                let idx = self.to_flat_idx(pc);
+                if self.node_statuses[idx] == NodeStatus::MazeVisited {
                     continue;
                 }
                 next_active_nodes.push(*pc);
-                self.visited_nodes[idx] = true;
+                self.node_statuses[idx] = NodeStatus::MazeVisited;
                 nodes_advanced += 1;
             }
         }
@@ -195,64 +201,106 @@ impl<'m> MazeNavigation<'m> {
         if self.active_nodes.is_empty() {
             return 0;
         }
-        self.steps_taken += 1;
+        self.maze_steps_taken += 1;
         nodes_advanced
     }
 
-    fn right_has_visited(&self, coord: &(usize, usize)) -> bool {
-        for col in coord.0 + 1..self.maze.num_cols() {
-            if self.is_visited(&(col, coord.1)) {
-                return true;
+    pub fn reset_active_nodes(&mut self) {
+        self.active_nodes = Vec::new();
+    }
+
+    fn get_next_outer(&self) -> Option<(usize, usize)> {
+        let mut row = 0;
+        let mut col = 0;
+        while col + 1 < self.maze.num_cols() {
+            if self.node_statuses[self.to_flat_idx(&(col, row))] == NodeStatus::None {
+                return Some((col, row));
+            }
+            col += 1;
+        }
+        while row + 1 < self.maze.num_rows() {
+            if self.node_statuses[self.to_flat_idx(&(col, row))] == NodeStatus::None {
+                return Some((col, row));
+            }
+            row += 1;
+        }
+        while col > 0 {
+            col -= 1;
+            if self.node_statuses[self.to_flat_idx(&(col, row))] == NodeStatus::None {
+                return Some((col, row));
             }
         }
-        false
-    }
-
-    fn up_has_visited(&self, coord: &(usize, usize)) -> bool {
-        for row in 0..coord.1 {
-            if self.is_visited(&(coord.0, row)) {
-                return true;
+        while row > 0 {
+            row -= 1;
+            if self.node_statuses[self.to_flat_idx(&(col, row))] == NodeStatus::None {
+                return Some((col, row));
             }
         }
-        false
+        None
     }
 
-    fn left_has_visited(&self, coord: &(usize, usize)) -> bool {
-        for col in 0..coord.0 {
-            if self.is_visited(&(col, coord.1)) {
-                return true;
+    fn get_outer_neighbors(&self, coord: &(usize, usize)) -> Vec<(usize, usize)> {
+        let mut res = Vec::with_capacity(4);
+        let col = coord.0;
+        let row = coord.1;
+        let num_cols = self.maze.num_cols();
+        let num_rows = self.maze.num_rows();
+        if col + 1 < num_cols {
+            let idx = self.to_flat_idx(&(col + 1, row));
+            if self.node_statuses[idx] == NodeStatus::None {
+                res.push((col + 1, row));
             }
         }
-        false
-    }
-
-    fn down_has_visited(&self, coord: &(usize, usize)) -> bool {
-        for row in coord.1 + 1..self.maze.num_rows() {
-            if self.is_visited(&(coord.0, row)) {
-                return true;
+        if row > 0 {
+            let idx = self.to_flat_idx(&(col, row - 1));
+            if self.node_statuses[idx] == NodeStatus::None {
+                res.push((col, row - 1));
             }
         }
-        false
+        if col > 0 {
+            let idx = self.to_flat_idx(&(col - 1, row));
+            if self.node_statuses[idx] == NodeStatus::None {
+                res.push((col - 1, row));
+            }
+        }
+        if row + 1 < num_rows {
+            let idx = self.to_flat_idx(&(col, row + 1));
+            if self.node_statuses[idx] == NodeStatus::None {
+                res.push((col, row + 1));
+            }
+        }
+        res
     }
 
-    fn is_node_enclosed(&self, coord: &(usize, usize)) -> bool {
-        ! self.is_visited(coord)
-            && self.right_has_visited(coord)
-            && self.up_has_visited(coord)
-            && self.left_has_visited(coord)
-            && self.down_has_visited(coord)
-    }
-
-    pub fn count_enclosed_spaces(&self) -> usize {
-        let mut total = 0;
-        for (i, row) in self.maze.nodes.iter().enumerate() {
-            for (j, _) in row.iter().enumerate() {
-                if self.is_node_enclosed(&(j, i)) {
-                    total += 1;
+    pub fn advance_outer_nav(&mut self) -> Option<usize> {
+        if self.active_nodes.is_empty() {
+            let next_coord = self.get_next_outer();
+            if let Some(coord) = next_coord {
+                self.active_nodes.push(coord);
+                return Some(1);
+            } else {
+                return None;
+            }
+        }
+        let mut nodes_advanced = 0;
+        let mut next_active_nodes = Vec::new();
+        for coord in self.active_nodes.iter() {
+            let pathable_coords = self.get_outer_neighbors(coord);
+            for pc in pathable_coords.iter() {
+                let idx = self.to_flat_idx(pc);
+                if self.node_statuses[idx] != NodeStatus::None {
+                    continue;
                 }
+                next_active_nodes.push(*pc);
+                self.node_statuses[idx] = NodeStatus::EmptyVisited;
+                nodes_advanced += 1;
             }
         }
-        total
+        self.active_nodes = next_active_nodes;
+        if self.active_nodes.is_empty() {
+            return Some(0);
+        }
+        Some(nodes_advanced)
     }
 }
 
@@ -264,8 +312,8 @@ fn draw_navigation(dt: &mut DrawTarget, nav: &MazeNavigation) {
 
     // Draw visited nodes
     let mut pb = PathBuilder::new();
-    for (idx, visited) in nav.visited_nodes.iter().enumerate() {
-        if *visited {
+    for (idx, status) in nav.node_statuses.iter().enumerate() {
+        if *status == NodeStatus::MazeVisited {
             let row = idx / nav.maze.num_cols();
             let col = idx % nav.maze.num_cols();
             let x = grid_width * col as f32;
@@ -278,6 +326,46 @@ fn draw_navigation(dt: &mut DrawTarget, nav: &MazeNavigation) {
         &path,
         &Source::Solid(SolidSource::from_unpremultiplied_argb(
             0xa0, 0x00, 0xff, 0x00,
+        )),
+        &DrawOptions::new(),
+    );
+
+    // Draw outer nodes
+    let mut pb = PathBuilder::new();
+    for (idx, status) in nav.node_statuses.iter().enumerate() {
+        if *status == NodeStatus::EmptyVisited {
+            let row = idx / nav.maze.num_cols();
+            let col = idx % nav.maze.num_cols();
+            let x = grid_width * col as f32;
+            let y = grid_height * row as f32;
+            pb.rect(x, y, grid_width, grid_height);
+        }
+    }
+    let path = pb.finish();
+    dt.fill(
+        &path,
+        &Source::Solid(SolidSource::from_unpremultiplied_argb(
+            0xa0, 0xff, 0x00, 0xff,
+        )),
+        &DrawOptions::new(),
+    );
+
+    // Draw enclosed nodes
+    let mut pb = PathBuilder::new();
+    for (idx, status) in nav.node_statuses.iter().enumerate() {
+        if *status == NodeStatus::EmptyVisited {
+            let row = idx / nav.maze.num_cols();
+            let col = idx % nav.maze.num_cols();
+            let x = grid_width * col as f32;
+            let y = grid_height * row as f32;
+            pb.rect(x, y, grid_width, grid_height);
+        }
+    }
+    let path = pb.finish();
+    dt.fill(
+        &path,
+        &Source::Solid(SolidSource::from_unpremultiplied_argb(
+            0xa0, 0x00, 0xff, 0xff,
         )),
         &DrawOptions::new(),
     );
@@ -364,30 +452,58 @@ pub fn run(args: &[String]) {
 
     let (win_width, win_height) = window.get_size();
     let mut dt = DrawTarget::new(win_width as i32, win_height as i32);
+
     draw_navigation(&mut dt, &navigation);
     draw_maze(&mut dt, &pipe_maze);
     window
         .update_with_buffer(dt.get_data(), win_width, win_height)
         .unwrap();
     sleep(Duration::from_millis(window_refresh_ms));
-    let mut iter = 1;
-    let mut is_solved = false;
-    while window.is_open() && !window.is_key_down(Key::Escape) {
-        if !is_solved && iter % (maze_refresh_ms / window_refresh_ms) == 0 {
-            dt.clear(SolidSource::from_unpremultiplied_argb(
-                0x00, 0x00, 0x00, 0x00,
-            ));
 
-            let num_updated = navigation.advance_nodes();
-            draw_navigation(&mut dt, &navigation);
-            draw_maze(&mut dt, &pipe_maze);
-            if num_updated == 0 {
-                println!("Steps in longest loop (part 1): {}", navigation.steps_taken);
-                println!(
-                    "Nodes enclosed (part 2): {}",
-                    navigation.count_enclosed_spaces()
-                );
-                is_solved = true;
+    let mut iter = 1;
+    let mut part_1_solved = false;
+    let mut part_2_solved = false;
+    while window.is_open() && !window.is_key_down(Key::Escape) {
+        let should_refresh =
+            !(part_1_solved && part_2_solved) && iter % (maze_refresh_ms / window_refresh_ms) == 0;
+
+        if should_refresh {
+            if !(part_1_solved || part_2_solved) {
+                dt.clear(SolidSource::from_unpremultiplied_argb(
+                    0x00, 0x00, 0x00, 0x00,
+                ));
+            }
+
+            if !part_1_solved {
+                let num_updated = navigation.advance_maze_nav();
+                if num_updated == 0 {
+                    println!(
+                        "Steps in longest loop (part 1): {}",
+                        navigation.maze_steps_taken
+                    );
+                    part_1_solved = true;
+                    navigation.reset_active_nodes();
+                }
+                draw_navigation(&mut dt, &navigation);
+                draw_maze(&mut dt, &pipe_maze);
+            }
+            if part_1_solved && !part_2_solved {
+                if navigation.advance_outer_nav().is_none() {
+                    navigation
+                        .node_statuses
+                        .iter_mut()
+                        .filter(|s| **s == NodeStatus::None)
+                        .for_each(|s| *s = NodeStatus::InnerInferred);
+                    let num_enclosed = navigation
+                        .node_statuses
+                        .iter()
+                        .filter(|s| **s == NodeStatus::InnerInferred)
+                        .count();
+                    println!("Spaces enclosed (part 2): {}", num_enclosed);
+                    part_2_solved = true;
+                }
+                draw_navigation(&mut dt, &navigation);
+                draw_maze(&mut dt, &pipe_maze);
             }
         }
         window
