@@ -171,6 +171,11 @@ impl<'m> MazeNavigation<'m> {
         self.maze.num_cols() * col + row
     }
 
+    fn is_visited(&self, coord: &(usize, usize)) -> bool {
+        let idx = self.get_visited_node_index(coord);
+        self.visited_nodes[idx]
+    }
+
     pub fn advance_nodes(&mut self) -> usize {
         let mut nodes_advanced = 0;
         let mut next_active_nodes = Vec::new();
@@ -192,6 +197,62 @@ impl<'m> MazeNavigation<'m> {
         }
         self.steps_taken += 1;
         nodes_advanced
+    }
+
+    fn right_has_visited(&self, coord: &(usize, usize)) -> bool {
+        for col in coord.0 + 1..self.maze.num_cols() {
+            if self.is_visited(&(col, coord.1)) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn up_has_visited(&self, coord: &(usize, usize)) -> bool {
+        for row in 0..coord.1 {
+            if self.is_visited(&(coord.0, row)) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn left_has_visited(&self, coord: &(usize, usize)) -> bool {
+        for col in 0..coord.0 {
+            if self.is_visited(&(col, coord.1)) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn down_has_visited(&self, coord: &(usize, usize)) -> bool {
+        for row in coord.1 + 1..self.maze.num_rows() {
+            if self.is_visited(&(coord.0, row)) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn is_node_enclosed(&self, coord: &(usize, usize)) -> bool {
+        ! self.is_visited(coord)
+            && self.right_has_visited(coord)
+            && self.up_has_visited(coord)
+            && self.left_has_visited(coord)
+            && self.down_has_visited(coord)
+    }
+
+    pub fn count_enclosed_spaces(&self) -> usize {
+        let mut total = 0;
+        for (i, row) in self.maze.nodes.iter().enumerate() {
+            for (j, _) in row.iter().enumerate() {
+                if self.is_node_enclosed(&(j, i)) {
+                    total += 1;
+                }
+            }
+        }
+        total
     }
 }
 
@@ -310,8 +371,9 @@ pub fn run(args: &[String]) {
         .unwrap();
     sleep(Duration::from_millis(window_refresh_ms));
     let mut iter = 1;
+    let mut is_solved = false;
     while window.is_open() && !window.is_key_down(Key::Escape) {
-        if iter % (maze_refresh_ms / window_refresh_ms) == 0 {
+        if !is_solved && iter % (maze_refresh_ms / window_refresh_ms) == 0 {
             dt.clear(SolidSource::from_unpremultiplied_argb(
                 0x00, 0x00, 0x00, 0x00,
             ));
@@ -321,7 +383,11 @@ pub fn run(args: &[String]) {
             draw_maze(&mut dt, &pipe_maze);
             if num_updated == 0 {
                 println!("Steps in longest loop (part 1): {}", navigation.steps_taken);
-                break;
+                println!(
+                    "Nodes enclosed (part 2): {}",
+                    navigation.count_enclosed_spaces()
+                );
+                is_solved = true;
             }
         }
         window
