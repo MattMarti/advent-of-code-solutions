@@ -82,7 +82,7 @@ impl PipeMaze {
             let mut row: Vec<MazeNode> = Vec::with_capacity(line.chars().count());
             for (j, c) in line.chars().enumerate() {
                 if c == 'S' {
-                    start = (i, j);
+                    start = (j, i);
                 }
                 row.push(MazeNode::from_char(c));
             }
@@ -97,16 +97,20 @@ impl PipeMaze {
         let col = coord.0;
         let curr_node = &self.nodes[row][col];
         if curr_node.right_ok && col + 1 < self.num_cols() {
-            pathable_nodes.push((col + 1, row));
+            let next_coord = (col + 1, row);
+            pathable_nodes.push(next_coord);
         }
         if curr_node.up_ok && row > 0 {
-            pathable_nodes.push((col, row - 1));
+            let next_coord = (col, row - 1);
+            pathable_nodes.push(next_coord);
         }
         if curr_node.left_ok && col > 0 {
-            pathable_nodes.push((col - 1, row));
+            let next_coord = (col - 1, row);
+            pathable_nodes.push(next_coord);
         }
         if curr_node.down_ok && row + 1 < self.num_rows() {
-            pathable_nodes.push((col, row + 1));
+            let next_coord = (col, row + 1);
+            pathable_nodes.push(next_coord);
         }
         pathable_nodes
     }
@@ -138,39 +142,33 @@ impl<'m> MazeNavigation<'m> {
         let start_idx = obj.get_visited_node_index(&maze.start);
         obj.visited_nodes[start_idx] = true;
 
-        let row = maze.start.0;
-        let col = maze.start.1;
+        let col = maze.start.0;
+        let row = maze.start.1;
         if col + 1 < maze.num_cols() && maze.nodes[row][col + 1].left_ok {
-            let coord = (row, col + 1);
-            let idx = obj.get_visited_node_index(&coord);
-            obj.active_nodes.push(coord);
-            obj.visited_nodes[idx] = true;
+            obj.set_coord_active(&(col + 1, row));
         }
         if row > 0 && maze.nodes[row - 1][col].down_ok {
-            let coord = (row - 1, col);
-            let idx = obj.get_visited_node_index(&coord);
-            obj.active_nodes.push(coord);
-            obj.visited_nodes[idx] = true;
+            obj.set_coord_active(&(col, row - 1));
         }
         if col > 0 && maze.nodes[row][col - 1].right_ok {
-            let coord = (row - 1, col);
-            let idx = obj.get_visited_node_index(&coord);
-            obj.active_nodes.push(coord);
-            obj.visited_nodes[idx] = true;
+            obj.set_coord_active(&(col - 1, row));
         }
         if row + 1 < maze.num_rows() && maze.nodes[row + 1][col].up_ok {
-            let coord = (row + 1, col);
-            let idx = obj.get_visited_node_index(&coord);
-            obj.active_nodes.push(coord);
-            obj.visited_nodes[idx] = true;
+            obj.set_coord_active(&(col, row + 1));
         }
         obj
     }
 
+    fn set_coord_active(&mut self, coord: &(usize, usize)) {
+        let idx = self.get_visited_node_index(coord);
+        self.active_nodes.push(*coord);
+        self.visited_nodes[idx] = true;
+    }
+
     fn get_visited_node_index(&self, coord: &(usize, usize)) -> usize {
-        let row = coord.0;
         let col = coord.1;
-        self.maze.num_cols() * row + col
+        let row = coord.0;
+        self.maze.num_cols() * col + row
     }
 
     pub fn advance_nodes(&mut self) -> usize {
@@ -197,13 +195,11 @@ impl<'m> MazeNavigation<'m> {
     }
 }
 
-fn draw_navigation(dt: &mut DrawTarget, nav: &MazeNavigation, map_width: usize, map_height: usize) {
-    let num_x = map_width as f32;
-    let num_y = map_height as f32;
-    let idx_to_px_x = dt.width() as f32 / num_x;
-    let idx_to_px_y = dt.height() as f32 / num_y;
-    let grid_width = idx_to_px_x;
-    let grid_height = idx_to_px_y;
+fn draw_navigation(dt: &mut DrawTarget, nav: &MazeNavigation) {
+    let num_x = nav.maze.num_cols() as f32;
+    let num_y = nav.maze.num_rows() as f32;
+    let grid_width = dt.width() as f32 / num_x;
+    let grid_height = dt.height() as f32 / num_y;
 
     // Draw visited nodes
     let mut pb = PathBuilder::new();
@@ -211,8 +207,8 @@ fn draw_navigation(dt: &mut DrawTarget, nav: &MazeNavigation, map_width: usize, 
         if *visited {
             let row = idx / nav.maze.num_cols();
             let col = idx % nav.maze.num_cols();
-            let x = idx_to_px_x * col as f32;
-            let y = idx_to_px_y * row as f32;
+            let x = grid_width * col as f32;
+            let y = grid_height * row as f32;
             pb.rect(x, y, grid_width, grid_height);
         }
     }
@@ -228,8 +224,8 @@ fn draw_navigation(dt: &mut DrawTarget, nav: &MazeNavigation, map_width: usize, 
     // Draw active nodes
     let mut pb = PathBuilder::new();
     for coord in nav.active_nodes.iter() {
-        let x = idx_to_px_x * coord.1 as f32;
-        let y = idx_to_px_y * coord.0 as f32;
+        let x = grid_width * coord.0 as f32;
+        let y = grid_height * coord.1 as f32;
         pb.rect(x, y, grid_width, grid_height);
     }
     let path = pb.finish();
@@ -243,8 +239,8 @@ fn draw_navigation(dt: &mut DrawTarget, nav: &MazeNavigation, map_width: usize, 
 }
 
 fn draw_maze(dt: &mut DrawTarget, maze: &PipeMaze) {
-    let num_x = maze.num_rows() as f32;
-    let num_y = maze.num_cols() as f32;
+    let num_x = maze.num_cols() as f32;
+    let num_y = maze.num_rows() as f32;
     let idx_to_px_x = dt.width() as f32 / num_x;
     let idx_to_px_y = dt.height() as f32 / num_y;
     let grid_width = idx_to_px_x / 3.0;
@@ -252,8 +248,8 @@ fn draw_maze(dt: &mut DrawTarget, maze: &PipeMaze) {
     let mut pb = PathBuilder::new();
     for (i, row) in maze.nodes.iter().enumerate() {
         for (j, node) in row.iter().enumerate() {
-            let y = i as f32 * idx_to_px_x + grid_width;
-            let x = j as f32 * idx_to_px_y + grid_height;
+            let x = j as f32 * idx_to_px_x + grid_height;
+            let y = i as f32 * idx_to_px_y + grid_width;
             if node.right_ok || node.up_ok || node.left_ok || node.down_ok {
                 pb.rect(x, y, grid_width, grid_height);
             }
@@ -283,10 +279,16 @@ fn draw_maze(dt: &mut DrawTarget, maze: &PipeMaze) {
 
 pub fn run(args: &[String]) {
     let lines = load_file_lines(&args[0]).unwrap();
-    let refresh_ms = args[1].parse().unwrap();
+    let maze_refresh_ms: u64 = args[1].parse().unwrap();
     let pipe_maze = PipeMaze::from_file_data(&lines);
     let mut navigation = MazeNavigation::new(&pipe_maze);
 
+    let default_window_refresh_ms = 20;
+    let window_refresh_ms = if maze_refresh_ms < default_window_refresh_ms {
+        maze_refresh_ms
+    } else {
+        default_window_refresh_ms
+    };
     let width = 750;
     let height = 750;
     let mut window = Window::new(
@@ -301,40 +303,34 @@ pub fn run(args: &[String]) {
 
     let (win_width, win_height) = window.get_size();
     let mut dt = DrawTarget::new(win_width as i32, win_height as i32);
-    draw_navigation(
-        &mut dt,
-        &navigation,
-        pipe_maze.num_rows(),
-        pipe_maze.num_cols(),
-    );
+    draw_navigation(&mut dt, &navigation);
     draw_maze(&mut dt, &pipe_maze);
     window
         .update_with_buffer(dt.get_data(), win_width, win_height)
         .unwrap();
-    sleep(Duration::from_millis(refresh_ms));
+    sleep(Duration::from_millis(window_refresh_ms));
+    let mut iter = 1;
     while window.is_open() && !window.is_key_down(Key::Escape) {
-        dt.clear(SolidSource::from_unpremultiplied_argb(
-            0x00, 0x00, 0x00, 0x00,
-        ));
+        if iter % (maze_refresh_ms / window_refresh_ms) == 0 {
+            dt.clear(SolidSource::from_unpremultiplied_argb(
+                0x00, 0x00, 0x00, 0x00,
+            ));
 
-        let num_updated = navigation.advance_nodes();
-        draw_navigation(
-            &mut dt,
-            &navigation,
-            pipe_maze.num_rows(),
-            pipe_maze.num_cols(),
-        );
-        draw_maze(&mut dt, &pipe_maze);
-
+            let num_updated = navigation.advance_nodes();
+            draw_navigation(&mut dt, &navigation);
+            draw_maze(&mut dt, &pipe_maze);
+            if num_updated == 0 {
+                println!("Steps in longest loop (part 1): {}", navigation.steps_taken);
+                break;
+            }
+        }
         window
             .update_with_buffer(dt.get_data(), win_width, win_height)
             .unwrap();
-
-        if num_updated == 0 {
-            println!("Steps in longest loop (part 1): {}", navigation.steps_taken);
-            break;
-        }
-
-        sleep(Duration::from_millis(refresh_ms));
+        sleep(Duration::from_millis(window_refresh_ms));
+        iter += 1;
     }
+    window
+        .update_with_buffer(dt.get_data(), win_width, win_height)
+        .unwrap();
 }
