@@ -211,14 +211,14 @@ impl MazeNavigation {
         }
         check_indices
             .iter()
-            .filter(|c| self.node_statuses[self.to_flat_idx(*c)] == node_type)
+            .filter(|c| self.node_statuses[self.to_flat_idx(c)] == node_type)
             .cloned()
             .collect()
     }
 
     pub fn advance_maze_nav(&mut self) -> usize {
         let mut nodes_advanced = 0;
-        let mut next_active_nodes = Vec::with_capacity(self.active_nodes.len());
+        let mut next_active_nodes = Vec::with_capacity(self.active_nodes.capacity());
         for coord in self.active_nodes.iter() {
             let pathable_coords =
                 self.get_adjacent_matching(coord, NodeStatus::PipeNotVisited, false);
@@ -281,7 +281,7 @@ impl MazeNavigation {
             }
         }
         let mut nodes_advanced = 0;
-        let mut next_active_nodes = Vec::new();
+        let mut next_active_nodes = Vec::with_capacity(self.active_nodes.capacity());
         for coord in self.active_nodes.iter() {
             let pathable_coords = self.get_adjacent_matching(coord, NodeStatus::None, true);
             for pc in pathable_coords.iter() {
@@ -305,13 +305,13 @@ impl MazeNavigation {
     pub fn count_traversed_maze_nodes(&self) -> usize {
         let mut total = 0;
         for i in 0..self.num_rows / 3 {
-            let row = i + 1;
+            let row = 3 * i + 1;
             for j in 0..self.num_cols / 3 {
-                let col = j + 1;
+                let col = 3 * j + 1;
                 let num_visited = self
-                    .get_adjacent_matching(&(col, row), NodeStatus::PipeVisited, true)
+                    .get_adjacent_matching(&(col, row), NodeStatus::PipeVisited, false)
                     .len();
-                if num_visited == 3 {
+                if num_visited >= 2 {
                     total += 1;
                 }
             }
@@ -322,16 +322,19 @@ impl MazeNavigation {
     pub fn count_empty_outer_nodes(&self) -> usize {
         let mut total = 0;
         for i in 0..self.num_rows / 3 {
-            let row = i + 1;
+            let row = 3 * i + 1;
             for j in 0..self.num_cols / 3 {
-                let col = j + 1;
+                let col = 3 * j + 1;
+                let num_visited_pipes = self
+                    .get_adjacent_matching(&(col, row), NodeStatus::PipeVisited, true)
+                    .len();
+                if num_visited_pipes >= 2 {
+                    continue;
+                }
                 let num_empty = self
                     .get_adjacent_matching(&(col, row), NodeStatus::EmptyVisited, true)
                     .len();
-                let num_not_visited_pipes = self
-                    .get_adjacent_matching(&(col, row), NodeStatus::PipeNotVisited, true)
-                    .len();
-                if num_empty + num_not_visited_pipes == 8 {
+                if num_empty > 1 {
                     total += 1;
                 }
             }
@@ -462,8 +465,8 @@ pub fn run(args: &[String]) {
             if part_1_solved && !part_2_solved {
                 if navigation.advance_outer_nav().is_none() {
                     let num_enclosed = navigation.num_maze_nodes()
-                        - navigation.count_empty_outer_nodes()
-                        - navigation.count_traversed_maze_nodes();
+                        - navigation.count_traversed_maze_nodes()
+                        - navigation.count_empty_outer_nodes();
                     println!("Spaces enclosed (part 2): {}", num_enclosed);
                     part_2_solved = true;
                 }
