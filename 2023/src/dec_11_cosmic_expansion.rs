@@ -1,11 +1,14 @@
 use crate::load_file_lines;
 
+// TODO Solve the off by 1 error. Problem works if given 9, 99, etc, not 10, 100.
+
 struct StarMap {
     coords: Vec<(usize, usize)>,
+    exp_factor: usize,
 }
 
 impl StarMap {
-    pub fn from_file_data(file_data: &[String]) -> Self {
+    pub fn from_file_data(file_data: &[String], exp_factor: usize) -> Self {
         let mut coords = Vec::new();
         for (row, line) in file_data.iter().enumerate() {
             for (col, c) in line.chars().enumerate() {
@@ -14,7 +17,7 @@ impl StarMap {
                 }
             }
         }
-        Self { coords }
+        Self { coords, exp_factor }
     }
 
     fn expand_cols(&mut self) {
@@ -23,7 +26,7 @@ impl StarMap {
             if self.coords[i - 1].0 + 1 < self.coords[i].0 {
                 let diff = self.coords[i].0 - self.coords[i - 1].0 - 1;
                 for j in i..self.coords.len() {
-                    self.coords[j].0 += diff;
+                    self.coords[j].0 += self.exp_factor * diff;
                 }
             }
         }
@@ -35,25 +38,21 @@ impl StarMap {
             if self.coords[i - 1].1 + 1 < self.coords[i].1 {
                 let diff = self.coords[i].1 - self.coords[i - 1].1 - 1;
                 for j in i..self.coords.len() {
-                    self.coords[j].1 += diff;
+                    self.coords[j].1 += self.exp_factor * diff;
                 }
             }
         }
     }
 
-    pub fn expanded_from(map: &Self) -> Self {
-        let mut next = Self {
-            coords: map.coords.clone(),
-        };
-        next.expand_cols();
-        next.expand_rows();
-        next
+    pub fn expand(&mut self) {
+        self.expand_cols();
+        self.expand_rows();
     }
 
     pub fn sum_distances(&self) -> usize {
         let mut total = 0;
         for (i, a) in self.coords.iter().enumerate() {
-            for b in self.coords.iter().skip(i) {
+            for b in self.coords.iter().skip(i + 1) {
                 total += calc_dist(a, b);
             }
         }
@@ -69,11 +68,13 @@ fn calc_dist(a: &(usize, usize), b: &(usize, usize)) -> usize {
 
 pub fn run(args: &[String]) {
     let lines = load_file_lines(&args[0]).unwrap();
-    let initial_map = StarMap::from_file_data(&lines);
-    let expanded_map = StarMap::expanded_from(&initial_map);
+    let num_iter: usize = args[1].parse().unwrap_or(1);
+    let mut galaxy_map = StarMap::from_file_data(&lines, num_iter);
+
+    galaxy_map.expand();
 
     println!(
-        "Distance after expansion (part 1): {}",
-        expanded_map.sum_distances()
+        "Distance after expansion: {}",
+        galaxy_map.sum_distances()
     );
 }

@@ -132,7 +132,7 @@ fn main() {
         ProgramOption {
             names: cmdset!["day-11", "11", "cosmic-exp"],
             func: dec_11_cosmic_expansion::run,
-            hint: String::from("[file]"),
+            hint: String::from("[file] [num_iterations]"),
         },
     ];
     let args: Vec<String> = env::args().skip(1).collect();
