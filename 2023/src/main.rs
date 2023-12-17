@@ -12,6 +12,7 @@ mod dec_07_camel_cards;
 mod dec_08_haunted_wasteland;
 mod dec_09_mirage_maintenance;
 mod dec_10_pipe_maze;
+mod dec_11_cosmic_expansion;
 
 pub fn load_file_lines(path: &str) -> io::Result<Vec<String>> {
     let mut lines = Vec::<_>::new();
@@ -127,6 +128,11 @@ fn main() {
             names: cmdset!["day-10", "10", "pipe-maze"],
             func: dec_10_pipe_maze::run,
             hint: String::from("[file] [frame_period_ms]"),
+        },
+        ProgramOption {
+            names: cmdset!["day-11", "11", "cosmic-exp"],
+            func: dec_11_cosmic_expansion::run,
+            hint: String::from("[file] [num_iterations]"),
         },
     ];
     let args: Vec<String> = env::args().skip(1).collect();
