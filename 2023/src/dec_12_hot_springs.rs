@@ -55,6 +55,10 @@ impl SpringCollection {
     pub fn iter(&self) -> Zip<Iter<String>, Iter<Vec<usize>>> {
         self.known_springs.iter().zip(self.adjacents.iter())
     }
+
+    pub fn len(&self) -> usize {
+        self.known_springs.len()
+    }
 }
 
 fn make_guess_str(str_len: usize, seqs: &[usize], spaces: &[usize]) -> Option<String> {
@@ -130,8 +134,8 @@ fn is_match(known: &str, test: &str) -> bool {
 }
 
 fn make_longer_spring_data(sc: &SpringCollection, times_copy: usize) -> SpringCollection {
-    let mut known_springs = Vec::with_capacity(sc.known_springs.len());
-    let mut adjacents = Vec::with_capacity(sc.adjacents.len());
+    let mut known_springs = Vec::with_capacity(sc.len());
+    let mut adjacents = Vec::with_capacity(sc.len());
     for (known, seqs) in sc.iter() {
         let mut long_known = known.clone();
         let mut long_seqs = seqs.clone();
@@ -169,8 +173,14 @@ pub fn run(args: &[String]) {
         let mut num_long_combos: u64 = 0;
         for (i, (types, seqs)) in long_spring_data.iter().enumerate() {
             num_long_combos += count_combos(types, seqs, period_ms) as u64;
-            let progress = i as f32 / long_spring_data.adjacents.len() as f32;
-            print!("\rProgress: {:.2}%", 100.0 * progress);
+            let progress = (i + 1) as f32 / long_spring_data.adjacents.len() as f32;
+            let avg_duration = start.elapsed().as_secs_f64() / i as f64;
+            print!(
+                "\rProgress: {:.2}%, avg iter time: {:.3?}",
+                100.0 * progress,
+                avg_duration
+            );
+            let _ = io::stdout().flush();
         }
         println!();
         let duration = start.elapsed();
