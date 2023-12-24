@@ -138,7 +138,7 @@ fn main() {
         ProgramOption {
             names: cmdset!["day-12", "12", "hot-springs"],
             func: dec_12_hot_springs::run,
-            hint: String::from("[file]"),
+            hint: String::from("[file] [update_period_ms]"),
         },
     ];
     let args: Vec<String> = env::args().skip(1).collect();

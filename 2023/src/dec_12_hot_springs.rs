@@ -3,8 +3,9 @@ use crate::load_file_lines;
 use core::iter::Zip;
 use core::slice::Iter;
 use std::io;
+use std::io::prelude::*;
 use std::thread::sleep;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 struct SpringCollection {
     known_springs: Vec<String>,
@@ -56,55 +57,60 @@ impl SpringCollection {
     }
 }
 
-fn make_guess_str(len: usize, seqs: &[usize], spaces: &[usize]) -> Option<String> {
-    let mut guess = vec!['.'; len];
+fn make_guess_str(str_len: usize, seqs: &[usize], spaces: &[usize]) -> Option<String> {
+    let mut guess = vec!['.'; str_len];
     let mut idx = 0;
     for (i, len) in seqs.iter().enumerate() {
         idx += spaces[i];
         if idx + len > guess.len() {
             return None;
         }
-        for j in idx..idx + len {
-            guess[j] = '#';
-        }
+        guess.iter_mut().skip(idx).take(*len).for_each(|c| *c = '#');
         idx += len;
     }
     Some(guess.iter().collect())
 }
 
-fn count_combos(known: &str, seqs: &[usize]) -> usize {
+fn count_combos(known: &str, seqs: &[usize], period_ms: u64) -> usize {
     let mut spaces = vec![1; seqs.len()];
     spaces[0] = 0;
 
     let mut num_matches = 0;
-    let mut num_failed: i32 = 0;
     let mut idx: i32 = spaces.len() as i32 - 1;
-    while idx >= 0 {
+    'main_loop: while idx >= 0 {
+        if spaces.iter().sum::<usize>() + seqs.iter().sum::<usize>() > known.len() {
+            while spaces.iter().sum::<usize>() + seqs.iter().sum::<usize>() > known.len() {
+                idx -= 1;
+                if idx < 0 {
+                    break 'main_loop;
+                }
+                spaces
+                    .iter_mut()
+                    .skip(idx as usize + 1)
+                    .for_each(|s| *s = 1);
+                spaces[idx as usize] += 1;
+            }
+            idx = spaces.len() as i32 - 1;
+        }
         let guess = make_guess_str(known.chars().count(), seqs, &spaces);
         if let Some(line) = guess {
-            num_failed = 0;
             if is_match(known, &line) {
                 num_matches += 1;
             }
             spaces[idx as usize] += 1;
-            println!("{} : {} {} {} {}", known, line, num_matches, idx, num_failed);
-            sleep(Duration::from_millis(250));
-        } else {
-            idx -= 1;
-            num_failed += 1;
-
-            println!("{} {}", idx, num_failed);
-
-            if num_failed as usize == spaces.len() {
-                break;
+            if period_ms != 0 {
+                print!("\r{} : {} {}", known, line, num_matches);
+                let _ = io::stdout().flush();
+                sleep(Duration::from_millis(period_ms));
             }
-            spaces.iter_mut().skip(idx as usize + 1).for_each(|s| *s = 1);
-            spaces[idx as usize] += 1;
-            idx = spaces.len() as i32 - 1;
-            sleep(Duration::from_millis(250));
+        } else {
+            println!("\nBad guess: seqs {:?}, spaces {:?}", seqs, spaces);
         }
+        idx = spaces.len() as i32 - 1;
     }
-    println!();
+    if period_ms != 0 {
+        println!();
+    }
     num_matches
 }
 
@@ -123,14 +129,57 @@ fn is_match(known: &str, test: &str) -> bool {
     true
 }
 
+fn make_longer_spring_data(sc: &SpringCollection, times_copy: usize) -> SpringCollection {
+    let mut known_springs = Vec::with_capacity(sc.known_springs.len());
+    let mut adjacents = Vec::with_capacity(sc.adjacents.len());
+    for (known, seqs) in sc.iter() {
+        let mut long_known = known.clone();
+        let mut long_seqs = seqs.clone();
+        for _ in 1..times_copy {
+            long_known += "?";
+            long_known += known;
+            long_seqs.extend(seqs);
+        }
+        known_springs.push(long_known);
+        adjacents.push(long_seqs);
+    }
+    SpringCollection {
+        known_springs,
+        adjacents,
+    }
+}
+
 pub fn run(args: &[String]) {
     let spring_data = SpringCollection::from_file(&args[0]).unwrap();
-
-    let num_combos: usize = spring_data
-        .iter()
-        .map(|(types, seqs)| count_combos(types, seqs))
-        .sum();
-    println!("Sum of possible row combinations (part 1): {}", num_combos);
+    let period_ms = args.get(1).unwrap_or(&String::from("0")).parse().unwrap();
+    {
+        let start = Instant::now();
+        let num_combos: usize = spring_data
+            .iter()
+            .map(|(types, seqs)| count_combos(types, seqs, period_ms))
+            .sum();
+        let duration = start.elapsed();
+        println!("Sum of possible row combinations (part 1): {}", num_combos);
+        println!("Solved in {:?}", duration);
+    }
+    {
+        const TIMES_COPY: usize = 4;
+        let long_spring_data = make_longer_spring_data(&spring_data, TIMES_COPY);
+        let start = Instant::now();
+        let mut num_long_combos: u64 = 0;
+        for (i, (types, seqs)) in long_spring_data.iter().enumerate() {
+            num_long_combos += count_combos(types, seqs, period_ms) as u64;
+            let progress = i as f32 / long_spring_data.adjacents.len() as f32;
+            print!("\rProgress: {:.2}%", 100.0 * progress);
+        }
+        println!();
+        let duration = start.elapsed();
+        println!(
+            "Sum of possible longer row combinations (part 2): {}",
+            num_long_combos
+        );
+        println!("Solved in {:?}", duration);
+    }
 }
 
 #[cfg(test)]
@@ -158,6 +207,6 @@ mod tests {
     #[case("#.?", &[1, 1, 3], 0)]
     #[case("#.?.##", &[1, 1, 3], 0)]
     fn test_count_combos(#[case] known: &str, #[case] seqs: &[usize], #[case] count: usize) {
-        assert_eq!(count_combos(known, seqs), count);
+        assert_eq!(count_combos(known, seqs, 0), count);
     }
 }
