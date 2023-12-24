@@ -77,24 +77,32 @@ fn count_combos(known: &str, seqs: &[usize]) -> usize {
     spaces[0] = 0;
 
     let mut num_matches = 0;
-    let mut space_idx: i32 = spaces.len() as i32 - 1;
-    let mut master_idx: i32 = spaces.len() as i32 - 1;
-    while space_idx >= 0 {
+    let mut num_failed: i32 = 0;
+    let mut idx: i32 = spaces.len() as i32 - 1;
+    while idx >= 0 {
         let guess = make_guess_str(known.chars().count(), seqs, &spaces);
         if let Some(line) = guess {
+            num_failed = 0;
             if is_match(known, &line) {
                 num_matches += 1;
             }
-            print!("{} : {} {}", known, line, num_matches);
+            spaces[idx as usize] += 1;
+            println!("{} : {} {} {} {}", known, line, num_matches, idx, num_failed);
+            sleep(Duration::from_millis(250));
         } else {
-            space_idx -= 1;
-            if space_idx < 0 {
+            idx -= 1;
+            num_failed += 1;
+
+            println!("{} {}", idx, num_failed);
+
+            if num_failed as usize == spaces.len() {
                 break;
             }
-            spaces.iter_mut().skip(space_idx as usize).for_each(|s| *s = 1);
+            spaces.iter_mut().skip(idx as usize + 1).for_each(|s| *s = 1);
+            spaces[idx as usize] += 1;
+            idx = spaces.len() as i32 - 1;
+            sleep(Duration::from_millis(250));
         }
-        println!();sleep(Duration::from_millis(250));
-        spaces[space_idx as usize] += 1;
     }
     println!();
     num_matches
