@@ -173,8 +173,8 @@ pub fn run(args: &[String]) {
         let mut num_long_combos: u64 = 0;
         for (i, (types, seqs)) in long_spring_data.iter().enumerate() {
             num_long_combos += count_combos(types, seqs, period_ms) as u64;
-            let progress = (i + 1) as f32 / long_spring_data.adjacents.len() as f32;
-            let avg_duration = start.elapsed().as_secs_f64() / i as f64;
+            let progress = (i + 1) as f32 / long_spring_data.len() as f32;
+            let avg_duration = start.elapsed().as_secs_f64() / (i + 1) as f64;
             print!(
                 "\rProgress: {:.2}%, avg iter time: {:.3?}",
                 100.0 * progress,
