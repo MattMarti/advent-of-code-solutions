@@ -163,7 +163,7 @@ pub fn run(args: &[String]) {
         println!("Solved in {:?}", duration);
     }
     {
-        const TIMES_COPY: usize = 4;
+        const TIMES_COPY: usize = 5;
         let long_spring_data = make_longer_spring_data(&spring_data, TIMES_COPY);
         let start = Instant::now();
         let mut num_long_combos: u64 = 0;
