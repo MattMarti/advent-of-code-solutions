@@ -13,6 +13,7 @@ mod dec_08_haunted_wasteland;
 mod dec_09_mirage_maintenance;
 mod dec_10_pipe_maze;
 mod dec_11_cosmic_expansion;
+mod dec_12_hot_springs;
 
 pub fn load_file_lines(path: &str) -> io::Result<Vec<String>> {
     let mut lines = Vec::<_>::new();
@@ -133,6 +134,11 @@ fn main() {
             names: cmdset!["day-11", "11", "cosmic-exp"],
             func: dec_11_cosmic_expansion::run,
             hint: String::from("[file] [num_iterations]"),
+        },
+        ProgramOption {
+            names: cmdset!["day-12", "12", "hot-springs"],
+            func: dec_12_hot_springs::run,
+            hint: String::from("[file]"),
         },
     ];
     let args: Vec<String> = env::args().skip(1).collect();

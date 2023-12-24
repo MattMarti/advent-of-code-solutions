@@ -73,8 +73,5 @@ pub fn run(args: &[String]) {
 
     galaxy_map.expand();
 
-    println!(
-        "Distance after expansion: {}",
-        galaxy_map.sum_distances()
-    );
+    println!("Distance after expansion: {}", galaxy_map.sum_distances());
 }
