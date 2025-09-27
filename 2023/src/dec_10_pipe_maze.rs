@@ -462,13 +462,11 @@ pub fn run(args: &[String]) {
             !(part_1_solved && part_2_solved) && iter % (maze_refresh_ms / window_refresh_ms) == 0;
 
         if should_refresh {
-            if !(part_1_solved || part_2_solved) {
-                let start_clear = Instant::now();
-                dt.clear(SolidSource::from_unpremultiplied_argb(
-                    0x00, 0x00, 0x00, 0x00,
-                ));
-                perf_timer.clear = start_clear.elapsed().as_micros();
-            }
+            let start_clear = Instant::now();
+            dt.clear(SolidSource::from_unpremultiplied_argb(
+                0x00, 0x00, 0x00, 0x00,
+            ));
+            perf_timer.clear = start_clear.elapsed().as_micros();
 
             if !part_1_solved {
                 let start_nav = Instant::now();
@@ -499,12 +497,13 @@ pub fn run(args: &[String]) {
                 draw_navigation(&mut dt, &navigation);
                 perf_timer.p2_draw = start_draw.elapsed().as_micros();
             }
+
+            let start_update = Instant::now();
+            window
+                .update_with_buffer(dt.get_data(), win_width, win_height)
+                .unwrap();
+            perf_timer.win_update = start_update.elapsed().as_micros();
         }
-        let start_update = Instant::now();
-        window
-            .update_with_buffer(dt.get_data(), win_width, win_height)
-            .unwrap();
-        perf_timer.win_update = start_update.elapsed().as_micros();
 
         if do_print_time {
             print!("\r{:?}", perf_timer);
