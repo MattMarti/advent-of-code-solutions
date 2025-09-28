@@ -1,7 +1,7 @@
 use crate::load_file_lines;
 
 use std::thread::sleep;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use minifb::{Key, Window, WindowOptions};
 use raqote::{DrawOptions, DrawTarget, PathBuilder, SolidSource, Source};
@@ -403,11 +403,24 @@ fn draw_navigation(dt: &mut DrawTarget, nav: &MazeNavigation) {
     );
 }
 
+#[derive(Debug, Default)]
+struct PerformanceTimer
+{
+    pub clear: u128,
+    pub p1_advance: u128,
+    pub p1_draw: u128,
+    pub p2_advance: u128,
+    pub p2_draw: u128,
+    pub win_update: u128,
+}
+
 pub fn run(args: &[String]) {
     let lines = load_file_lines(&args[0]).unwrap();
     let maze_refresh_ms: u64 = args[1].parse().unwrap();
     let pipe_maze = PipeMaze::from_file_data(&lines);
     let mut navigation = MazeNavigation::new(&pipe_maze);
+
+    let do_print_time = args.contains(&"-t".to_owned()) || args.contains(&"--time".to_owned());
 
     let default_window_refresh_ms = 20;
     let window_refresh_ms = if maze_refresh_ms < default_window_refresh_ms {
@@ -415,6 +428,7 @@ pub fn run(args: &[String]) {
     } else {
         default_window_refresh_ms
     };
+    let window_refresh_us = 1000 * window_refresh_ms;
     let width = 750;
     let height = 750;
     let mut window = Window::new(
@@ -441,18 +455,23 @@ pub fn run(args: &[String]) {
     let mut part_1_solved = false;
     let mut part_2_solved = false;
     while window.is_open() && !window.is_key_down(Key::Escape) {
+        let iter_start = Instant::now();
+        let mut perf_timer = PerformanceTimer::default();
+
         let should_refresh =
             !(part_1_solved && part_2_solved) && iter % (maze_refresh_ms / window_refresh_ms) == 0;
 
         if should_refresh {
-            if !(part_1_solved || part_2_solved) {
-                dt.clear(SolidSource::from_unpremultiplied_argb(
-                    0x00, 0x00, 0x00, 0x00,
-                ));
-            }
+            let start_clear = Instant::now();
+            dt.clear(SolidSource::from_unpremultiplied_argb(
+                0x00, 0x00, 0x00, 0x00,
+            ));
+            perf_timer.clear = start_clear.elapsed().as_micros();
 
             if !part_1_solved {
+                let start_nav = Instant::now();
                 let num_updated = navigation.advance_maze_nav();
+                perf_timer.p1_advance = start_nav.elapsed().as_micros();
                 if num_updated == 0 {
                     println!("Steps in longest loop (part 1): {}", (maze_steps_taken / 3));
                     part_1_solved = true;
@@ -460,9 +479,12 @@ pub fn run(args: &[String]) {
                 } else {
                     maze_steps_taken += 1;
                 }
+                let start_draw = Instant::now();
                 draw_navigation(&mut dt, &navigation);
+                perf_timer.p1_draw = start_draw.elapsed().as_micros();
             }
             if part_1_solved && !part_2_solved {
+                let start_nav = Instant::now();
                 if navigation.advance_outer_nav().is_none() {
                     let num_enclosed = navigation.num_maze_nodes()
                         - navigation.count_traversed_maze_nodes()
@@ -470,16 +492,31 @@ pub fn run(args: &[String]) {
                     println!("Spaces enclosed (part 2): {}", num_enclosed);
                     part_2_solved = true;
                 }
+                perf_timer.p2_advance = start_nav.elapsed().as_micros();
+                let start_draw = Instant::now();
                 draw_navigation(&mut dt, &navigation);
+                perf_timer.p2_draw = start_draw.elapsed().as_micros();
             }
+
+            let start_update = Instant::now();
+            window
+                .update_with_buffer(dt.get_data(), win_width, win_height)
+                .unwrap();
+            perf_timer.win_update = start_update.elapsed().as_micros();
         }
-        window
-            .update_with_buffer(dt.get_data(), win_width, win_height)
-            .unwrap();
-        sleep(Duration::from_millis(window_refresh_ms));
+
+        if do_print_time {
+            print!("\r{:?}", perf_timer);
+        }
+
+        let iter_duration = iter_start.elapsed().as_micros() as u64;
+        let wait_time_us = if iter_duration < window_refresh_us {
+            window_refresh_us - iter_duration
+        }
+        else {
+            10
+        };
+        sleep(Duration::from_micros(wait_time_us));
         iter += 1;
     }
-    window
-        .update_with_buffer(dt.get_data(), win_width, win_height)
-        .unwrap();
 }
